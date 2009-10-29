@@ -1,0 +1,5 @@
+Install gcc, and libconfig
+
+run build.sh
+
+run orbit
