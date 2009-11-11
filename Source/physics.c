@@ -1,20 +1,32 @@
 #include <math.h>
+#include <stdio.h>
 #include "structs.h"
 #include "vecmath.h"
 #include "coord.h"
+#include "orbit.h"
 #include "physics.h"
+#define g_0 9.797645
+#define fuelmass 10
+#define mdot 2.5
+#define Isp 230.0
+
+double mass_f;
 
 vec physics(state r, double t)
 {
     vec g, d, th, physics;
+   
+    //r.m = r.m - (mdot * t); 
+    
+    mass_f = fuelmass - (initialRocket().m - r.m);
     
     g = gravity(r);
     d = drag(r, t);
     th = thrust(r, t);
     
-    physics.i = g.i + d.i + th.i;
-    physics.j = g.j + d.j + th.j;
-    physics.k = g.k + d.k + th.k;
+    physics.i = g.i + d.i + th.i / r.m;
+    physics.j = g.j + d.j + th.j / r.m;
+    physics.k = g.k + d.k + th.k / r.m;
     
     return physics;
 }
@@ -84,32 +96,44 @@ vec drag(state r , double t)
     return d;
 }
 
+/**
+ * Thrust on the rocket
+ */
 vec thrust(state r, double t)
 {
-    /*
-    vec Ft, earth;
-    double thrust, tilt, i = 68.0;
-    
-    earth = unitVev(r.s);
-    tilt = 0.0;
-    
-    Ft.i = 0.0;
-    Ft.j = 0.0;
-    Ft.k = 0.0;
-    
-    if (t < 500.0)
+    vec Ft;
+    vec Ft_enu, Ft_ecef;
+
+    if (mass_f > 0.0)
     {
-        thrust = 30.0;
+        Ft_enu.i = 0.0;
+        Ft_enu.j = 0.0;
+        Ft_enu.k = g_0 * Isp * mdot;
         
-        Ft.k = 20.0;
+        Ft_ecef = ecefFromEnu(Ft_enu, r);
+        
+        Ft.i = Ft_ecef.i;
+        Ft.j = Ft_ecef.j;
+        Ft.k = Ft_ecef.k;
+    }
+    else
+    {
+        Ft.i = 0.0;
+        Ft.j = 0.0;
+        Ft.k = 0.0;
     }
     return Ft;
-    */
-    vec Ft;
-    Ft.i = 0.0;
-    Ft.j = 0.0;
-    Ft.k = 0.0;
-    return Ft;
+}
+
+double updateMass(state r, double t)
+{
+    mass_f = fuelmass - (initialRocket().m - r.m);
+    
+    if (mass_f > 0.0)
+    {
+        return r.m - (mdot * t);
+    }
+    return r.m;
 }
 
 double rho(double h)

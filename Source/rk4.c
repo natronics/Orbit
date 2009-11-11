@@ -102,5 +102,6 @@ state rk4(state r, float h, double t)
     r.a[y] = physics(r, t + h).j;
     r.a[z] = physics(r, t + h).k;
     
+    r.m = updateMass(r, t);
     return r;
 }

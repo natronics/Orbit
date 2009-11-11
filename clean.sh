@@ -2,7 +2,7 @@
 
 echo "Cleaning..."
 
-rm alt-t.eps
+rm *.eps
 rm out.dat
 rm Build/orbit
 

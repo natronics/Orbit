@@ -15,3 +15,4 @@ double acceleration(state r);
 double KE(state r);
 double PE(state r);
 double downrange(state r, double lat1, double lon1);
+double updateMass(state r, double t);

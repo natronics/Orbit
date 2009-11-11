@@ -99,7 +99,7 @@ set nox2tics
 set noy2tics
 set cbtics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0
 set cbtics autofreq 
-set title "Altitude vs Time" 
+set title "Acceleration vs Time" 
 set title  offset character 0, 0, 0 font "" norotate
 set timestamp bottom 
 set timestamp "" 
@@ -114,7 +114,7 @@ set x2label ""
 set x2label  offset character 0, 0, 0 font "" textcolor lt -1 norotate
 set xrange [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
 set x2range [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
-set ylabel "Altitude [m]" 
+set ylabel "Acceleration [g]" 
 set ylabel  offset character 0, 0, 0 font "" textcolor lt -1 rotate by 90
 set y2label "" 
 set y2label  offset character 0, 0, 0 font "" textcolor lt -1 rotate by 90
@@ -142,8 +142,7 @@ set colorbox vertical origin screen 0.9, 0.2, 0 size screen 0.05, 0.6, 0 front b
 set loadpath 
 set fontpath 
 set fit noerrorvariables
-#GNUTERM = "wxt"
 set term postscript color
-set out "alt-t.eps"
-plot "./out.dat" us 1:16 notitle w lines
+set out "acc-t.eps"
+plot "./out.dat" us 1:(sqrt($8**2 + $9**2 + $10**2)/9.797) notitle w lines lt 1 lw 2
 #    EOF

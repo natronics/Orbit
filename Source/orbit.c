@@ -7,8 +7,7 @@
 #include "vecmath.h"
 #include "rout.h"
 #include "rk4.h"
-
-void run();
+#include "orbit.h"
 
 struct config_t cfg;
 state initRocket;
@@ -154,7 +153,7 @@ void run()
     rocket = initRocket;
     
     
-    for (t = 0; t < 100; t += h)
+    for (t = 0; t < 1000; t += h)
     {
         alt = altitude(rocket);
         for (i = 0; i < sizeof(altitueEvents); i++)
@@ -173,4 +172,9 @@ void run()
         printLine(rocket, t, lat_0, lon_0);
         rocket = rk4(rocket, h, t);
     }
+}
+
+state initialRocket()
+{
+    return initRocket;
 }

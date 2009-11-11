@@ -7,5 +7,6 @@ echo "Running..."
 echo "Visualizing..."
 
 gnuplot alt-t.plt
+gnuplot acc-t.plt
 
 
