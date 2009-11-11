@@ -16,6 +16,8 @@
 #    
 # set terminal wxt 0
 # set output
+
+set multiplot
 unset clip points
 set clip one
 unset clip two
@@ -73,8 +75,8 @@ set cntrparam order 4
 set cntrparam linear
 set cntrparam levels auto 5
 set cntrparam points 5
-set size ratio 0 1,1
-set origin 0,0
+set size ratio 0 1,0.5
+set origin 0,0.5
 set style data points
 set style function lines
 set xzeroaxis linetype -2 linewidth 1.000
@@ -89,8 +91,6 @@ set mztics default
 set mx2tics default
 set my2tics default
 set mcbtics default
-set xtics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0
-set xtics autofreq 
 set ytics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0
 set ytics autofreq 
 set ztics border in scale 1,0.5 nomirror norotate  offset character 0, 0, 0
@@ -99,7 +99,7 @@ set nox2tics
 set noy2tics
 set cbtics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0
 set cbtics autofreq 
-set title "Altitude vs Time" 
+set title "Rocket Motion Over Time" 
 set title  offset character 0, 0, 0 font "" norotate
 set timestamp bottom 
 set timestamp "" 
@@ -108,7 +108,7 @@ set rrange [ * : * ] noreverse nowriteback  # (currently [0.00000:10.0000] )
 set trange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
 set urange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
 set vrange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
-set xlabel "Time [s]" 
+set xlabel "" 
 set xlabel  offset character 0, 0, 0 font "" textcolor lt -1 norotate
 set x2label "" 
 set x2label  offset character 0, 0, 0 font "" textcolor lt -1 norotate
@@ -142,8 +142,26 @@ set colorbox vertical origin screen 0.9, 0.2, 0 size screen 0.05, 0.6, 0 front b
 set loadpath 
 set fontpath 
 set fit noerrorvariables
-#GNUTERM = "wxt"
-set term postscript color
-set out "alt-t.eps"
-plot "./out.dat" us 1:16 notitle w lines lt 1 lw 2
+set grid
+
+set format y "%5.0f"
+set xtic
+set format x ""
+plot "./out.dat" us 1:16 notitle w lines lt 1 lw 3
+set origin 0, 0.25
+set size 1, 0.25
+unset title
+set ylabel "Vel. [m/s]"
+set ytic 40
+plot "./out.dat" us 1:(sqrt($5**2 + $6**2 + $7**2)) notitle w lines lt 1 lw 3
+set origin 0,0
+set size 1, 0.25
+set format x "%0.0f"
+set xlabel "Time [s]"
+set ylabel "Acc. [g]"
+set ytic 10
+plot "./out.dat" us 1:(sqrt($8**2 + $9**2 + $10**2)/9.797) notitle w lines lt 1 lw 3
+unset multiplot
+#set term postscript color
+#set out "motion.eps"
 #    EOF

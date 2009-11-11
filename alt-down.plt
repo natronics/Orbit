@@ -99,7 +99,7 @@ set nox2tics
 set noy2tics
 set cbtics border in scale 1,0.5 mirror norotate  offset character 0, 0, 0
 set cbtics autofreq 
-set title "Altitude vs Time" 
+set title "Altitude vs Downrange" 
 set title  offset character 0, 0, 0 font "" norotate
 set timestamp bottom 
 set timestamp "" 
@@ -108,7 +108,7 @@ set rrange [ * : * ] noreverse nowriteback  # (currently [0.00000:10.0000] )
 set trange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
 set urange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
 set vrange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
-set xlabel "Time [s]" 
+set xlabel "Downrange [m]" 
 set xlabel  offset character 0, 0, 0 font "" textcolor lt -1 norotate
 set x2label "" 
 set x2label  offset character 0, 0, 0 font "" textcolor lt -1 norotate
@@ -142,8 +142,7 @@ set colorbox vertical origin screen 0.9, 0.2, 0 size screen 0.05, 0.6, 0 front b
 set loadpath 
 set fontpath 
 set fit noerrorvariables
-#GNUTERM = "wxt"
 set term postscript color
-set out "alt-t.eps"
-plot "./out.dat" us 1:16 notitle w lines lt 1 lw 2
+set out "alt-down.eps"
+plot "./out.dat" us 17:16 notitle w lines lt 1 lw 2
 #    EOF

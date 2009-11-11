@@ -24,9 +24,9 @@ vec physics(state r, double t)
     d = drag(r, t);
     th = thrust(r, t);
     
-    physics.i = g.i + d.i + th.i / r.m;
-    physics.j = g.j + d.j + th.j / r.m;
-    physics.k = g.k + d.k + th.k / r.m;
+    physics.i = g.i + d.i + (th.i / r.m);
+    physics.j = g.j + d.j + (th.j / r.m);
+    physics.k = g.k + d.k + (th.k / r.m);
     
     return physics;
 }
@@ -81,17 +81,19 @@ vec drag(state r , double t)
         Cd = 0.62;
     }
     
+    
     totalDrag = -(0.5 * rho(h) * velocity(r)*velocity(r) * A  * Cd)/r.m;
     
     d.i = totalDrag * v.i;
     d.j = totalDrag * v.j;
     d.k = totalDrag * v.k;
     
-    */
     
+    */
     d.i = 0.0;
     d.j = 0.0;
     d.k = 0.0;
+    
 
     return d;
 }
@@ -103,12 +105,18 @@ vec thrust(state r, double t)
 {
     vec Ft;
     vec Ft_enu, Ft_ecef;
+    double thrust;
+    double phi;
 
     if (mass_f > 0.0)
     {
-        Ft_enu.i = 0.0;
+        //phi = 0.1 * t;
+        phi = 0;
+        thrust =  g_0 * Isp * mdot;
+        
+        Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
-        Ft_enu.k = g_0 * Isp * mdot;
+        Ft_enu.k = thrust * cos(phi);
         
         Ft_ecef = ecefFromEnu(Ft_enu, r);
         
