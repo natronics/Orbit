@@ -69,17 +69,17 @@ int main(int argc, char **argv)
 	    if (leng)
 	    {
 	        double length = config_setting_get_float(leng);
-	        printf("%f\n", length);
+	        //printf("%f\n", length);
 	    }
 	    if (OD)
 	    {
 	        double outerDiameter = config_setting_get_float(OD);
-	        printf("%f\n", outerDiameter);
+	        //printf("%f\n", outerDiameter);
 	    }
 	    if (Cd)
 	    {
 	        double coefDrag = config_setting_get_float(Cd);
-	        printf("%f\n", coefDrag);
+	        //printf("%f\n", coefDrag);
 	    }
         
         if (!pos || !vel || !mass || !step)
@@ -96,6 +96,10 @@ int main(int argc, char **argv)
             double U_y = config_setting_get_float_elem(vel, 1);
             double U_z = config_setting_get_float_elem(vel, 2);
             double m = config_setting_get_float(mass);
+            
+            vec U_enu;
+            vec U_ecef;
+            
             h = config_setting_get_float(step);
            
             lon_0 = radians(lon);
@@ -105,9 +109,24 @@ int main(int argc, char **argv)
             initRocket.s[x] = cart.i;
             initRocket.s[y] = cart.j;
             initRocket.s[z] = cart.k;
+            
+            /*
             initRocket.U[x] = U_x;
             initRocket.U[y] = U_y;
             initRocket.U[z] = U_z;
+            */
+            
+            U_enu.i = U_x;
+            U_enu.j = U_y;
+            U_enu.k = U_z;
+            
+            U_ecef = ecefFromEnu(U_enu, initRocket);
+            
+            initRocket.U[x] = U_ecef.i;
+            initRocket.U[y] = U_ecef.j;
+            initRocket.U[z] = U_ecef.k;
+            
+            
             initRocket.m = m;
             
             vec accel = physics(initRocket, 0);
@@ -145,7 +164,12 @@ void run()
             {
                 //maybe something?
             }
-        } 
+        }
+        
+        if (alt < -10) // hit ground
+        {
+            break;
+        }
         printLine(rocket, t, lat_0, lon_0);
         rocket = rk4(rocket, h, t);
     }

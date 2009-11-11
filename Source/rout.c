@@ -24,8 +24,8 @@ void printLine(state r, double t, double lat_0, double lon_0)
     strcat(format, exp);            //10    a_z
     strcat(format, exp);            //11    KE
     strcat(format, exp);            //12    PE
-    strcat(format, "%0.6f\t");      //13    Lat
-    strcat(format, "%0.6f\t");      //14    Lon
+    strcat(format, "%0.12f\t");      //13    Lat
+    strcat(format, "%0.12f\t");      //14    Lon
     strcat(format, exp);            //15    Alt
     strcat(format, "%0.10f\t");         //16    Downrange
     /*

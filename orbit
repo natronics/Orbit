@@ -4,3 +4,8 @@ echo "Running..."
 
 ./Build/orbit -c sample.cfg > out.dat
 
+echo "Visualizing..."
+
+gnuplot alt-t.plt
+
+

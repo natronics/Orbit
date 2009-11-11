@@ -26,11 +26,11 @@ vec gravity(state r)
     
     gravity = G * (Me/square(position(r)));
     e = unitVec(r.s);
-    
+
     g.i = gravity * e.i;
     g.j = gravity * e.j;
     g.k = gravity * e.k;
-        
+
     return g;
 }
 
@@ -49,6 +49,7 @@ vec drag(state r , double t)
     // A for Droge: 1.04m^2
     // A for Main: 14.4
     
+    /*
     v = unitVec(r.U);
     h = altitude(r);
     
@@ -73,6 +74,12 @@ vec drag(state r , double t)
     d.i = totalDrag * v.i;
     d.j = totalDrag * v.j;
     d.k = totalDrag * v.k;
+    
+    */
+    
+    d.i = 0.0;
+    d.j = 0.0;
+    d.k = 0.0;
 
     return d;
 }
