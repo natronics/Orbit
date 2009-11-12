@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <string.h>
 #include <libconfig.h>
+#include <stdlib.h>
 #include "structs.h"
 #include "coord.h"
 #include "physics.h"
@@ -9,15 +9,24 @@
 #include "rk4.h"
 #include "orbit.h"
 
+#define VERSION 0.1
+
 struct config_t cfg;
 state initRocket;
-double lon_0, lat_0;
+double apogee;
+double tburnout;
+double fuelMass;
+double Isp;
 float h;
+char *outputFileName;
+FILE *out;
 
+/**
+ * ToOrbit Sim
+ */
 int main(int argc, char **argv)
 {
-    char header[256] = "#";
-    char *file = "orbit.cfg";
+    char *file = "orbit.cfg"; //Default config file name
     int i;
     
     /* Start at i = 1 to skip the command name. */
@@ -29,81 +38,150 @@ int main(int argc, char **argv)
 	        /* Use the next character to decide what to do. */
 	        switch (argv[i][1]) 
 	        {
-		        case 'c':	
+		        case 'c':   // set config file name
 		            file = argv[i+1];
+				    break;
+				case 'h':   // print help
+				    printHelp();
+				    return 0;
+				    break;
+				case 'v' :  // version
+				    printVersion();
+				    return 0;
 				    break;
 		        default:	
 		            fprintf(stderr, "Unknown switch %s\n", argv[i]);
 	        }
 	    }
     }
+    
+    /* Read the config file */
+    readConfigFile(file);
+    
+    // Open output file for editing
+    out = fopen(outputFileName, "w");
+    
+    // Print header
+    printHeader(out);
+    
+    /* Do it */
+    run();
+    
+    // close file
+    fclose(out);
+    
+    /* exit */
+    return 0;
+}
+
+/**
+ * Handles the actual running of the program
+ */
+void run()
+{
+    double t;
+    double alt, lastAlt;
+    int i;
+    state rocket, lastRocket;
+    
+    rocket = initRocket;
+    lastRocket = rocket;
+    
+    for (t = 0; t < 1000; t += h)
+    {
+        alt = altitude(rocket);
+        lastAlt = altitude(lastRocket);
         
+        if (lastAlt < alt)
+        {
+            apogee = lastAlt;
+        }
+        
+        if (alt < -1) // hit ground
+        {
+            break;
+        }
+        printLine(out, rocket, t);
+        lastRocket = rocket;            //LastRocket
+        rocket = rk4(rocket, h, t);     //NewRocket
+    }
+
+    printf("%s:\t%f\n", "Apogee", apogee);
+}
+
+void readConfigFile(char *filename)
+{
+    vec U_enu, U_ecef;
+
     /* Initialize the configuration */
     config_init(&cfg);
     
     /* Load the file */
-    if (!config_read_file(&cfg, file))
+    if (!config_read_file(&cfg, filename))
     {
-        printf("failed config_read_file \"%s\"\n", file);
-        return 1;
+        printf("failed config_read_file \"%s\"\n", filename);
+        exit(1);
     }
     else
     {
-        config_setting_t *pos = NULL;
-        config_setting_t *vel = NULL;
-        config_setting_t *mass = NULL;
-        config_setting_t *step = NULL;
-	    config_setting_t *leng = NULL;
-	    config_setting_t *OD = NULL;
-	    config_setting_t *Cd = NULL;
+        /* Config file layout */
+        config_setting_t *tstep         = NULL;
+        config_setting_t *outFile       = NULL;
         
-        pos     = config_lookup(&cfg, "rocketInit.position");
-        vel     = config_lookup(&cfg, "rocketInit.velocity");
-        mass    = config_lookup(&cfg, "rocketInit.mass");
-        step    = config_lookup(&cfg, "timeStep");
-	    leng    = config_lookup(&cfg, "rocketDesc.length");
-	    OD      = config_lookup(&cfg, "rocketDesc.OD");
-	    Cd      = config_lookup(&cfg, "rocketDesc.Cd");
+        config_setting_t *pos           = NULL;
+        config_setting_t *vel           = NULL;
+        
+        config_setting_t *emass         = NULL;
+        config_setting_t *fmass         = NULL;
+        config_setting_t *isp           = NULL;        
+	    config_setting_t *leng          = NULL;
+	    config_setting_t *OD            = NULL;
+        
+        tstep       = config_lookup(&cfg, "timeStep");
+        outFile     = config_lookup(&cfg, "outputFile");
+        
+        pos         = config_lookup(&cfg, "rocketInit.position");
+        vel         = config_lookup(&cfg, "rocketInit.velocity");
+            
+        emass       = config_lookup(&cfg, "rocketDesc.emptyMass");
+        fmass       = config_lookup(&cfg, "rocketDesc.fuelMass");
+        isp         = config_lookup(&cfg, "rocketDesc.Isp");
+	    leng        = config_lookup(&cfg, "rocketDesc.length");
+	    OD          = config_lookup(&cfg, "rocketDesc.OD");
 	
-	    if (leng)
-	    {
-	        double length = config_setting_get_float(leng);
-	        //printf("%f\n", length);
-	    }
-	    if (OD)
-	    {
-	        double outerDiameter = config_setting_get_float(OD);
-	        //printf("%f\n", outerDiameter);
-	    }
-	    if (Cd)
-	    {
-	        double coefDrag = config_setting_get_float(Cd);
-	        //printf("%f\n", coefDrag);
-	    }
-        
-        if (!pos || !vel || !mass || !step)
+	    /* Make sure values are found in the config file */
+        if ( !tstep || !outFile || !pos || !vel 
+            || !emass || !fmass || !isp || !leng || !OD ) 
         {
             printf("failed config_lookup\n");
-            return 1;
+            exit(1);
         }
         else
         {
+            // Time Step
+            h = config_setting_get_float(tstep);
+            
+            // output file name
+            outputFileName = config_setting_get_string(outFile);
+            
+            // Position
             double lat = config_setting_get_float_elem(pos, 0);
             double lon = config_setting_get_float_elem(pos, 1);
             double alt = config_setting_get_float_elem(pos, 2);
+            
+            // Velocity
             double U_x = config_setting_get_float_elem(vel, 0);
             double U_y = config_setting_get_float_elem(vel, 1);
             double U_z = config_setting_get_float_elem(vel, 2);
-            double m = config_setting_get_float(mass);
             
-            vec U_enu;
-            vec U_ecef;
+            // Rocket
+            double emptyMass = config_setting_get_float(emass);
+            double fuelMass = config_setting_get_float(fmass);
+            double Isp = config_setting_get_float(isp);
+            double length = config_setting_get_float(leng);
+            double outerDiameter = config_setting_get_float(OD);
             
-            h = config_setting_get_float(step);
-           
-            lon_0 = radians(lon);
-            lat_0 = radians(lat);
-            vec cart = cartesian(Re + alt, PI/2.0 - lat_0, lon_0);
+            vec cart = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
             
             initRocket.s[x] = cart.i;
             initRocket.s[y] = cart.j;
@@ -126,55 +204,37 @@ int main(int argc, char **argv)
             initRocket.U[z] = U_ecef.k;
             
             
-            initRocket.m = m;
+            initRocket.m = emptyMass + fuelMass;
             
             vec accel = physics(initRocket, 0);
             initRocket.a[x] = accel.i;
             initRocket.a[y] = accel.j;
             initRocket.a[z] = accel.k;
-        }
-    }
-
-    printHeader();
-    
-    run();
-    
-    return 0;
-}
-
-void run()
-{
-    double t;
-    double altitueEvents[3] = {10.4, 100.0, 60.5};
-    double alt;
-    int i;
-    state rocket, lastRocket;
-    
-    rocket = initRocket;
-    
-    
-    for (t = 0; t < 1000; t += h)
-    {
-        alt = altitude(rocket);
-        for (i = 0; i < sizeof(altitueEvents); i++)
-        {
             
-            if (alt > altitueEvents[i])
-            {
-                //maybe something?
-            }
+            initRocket.mode = 0;
         }
-        
-        if (alt < -10) // hit ground
-        {
-            break;
-        }
-        printLine(rocket, t, lat_0, lon_0);
-        rocket = rk4(rocket, h, t);
     }
 }
 
 state initialRocket()
 {
     return initRocket;
+}
+
+void printHelp()
+{
+    printf("ToOrbit Sim version %#.1f\n", VERSION);
+    printf("©2009 Nathan Bergey availible under GPL 3\n\n");
+    printf("Switches:\n");
+    printf("\t-c - Config file name\n");
+    printf("\t-v - Version number\n");
+    printf("\n");
+    printf("Examples:\n");
+    printf("\torbit -c config.cfg\n");
+    printf("\n");
+}
+
+void printVersion()
+{
+    printf("%#.1f\n", VERSION);
 }

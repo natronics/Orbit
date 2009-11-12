@@ -206,10 +206,17 @@ double PE(state r)
  * Law of spherical cosines:
  * http://www.movable-type.co.uk/scripts/latlong.html
  */
-double downrange(state r, double lat1, double lon1)
+double downrange(state r)
 {
     double lat2, lon2, a;
+    double lat1, lon1;
     double d;
+    state init;
+    
+    init = initialRocket();
+    
+    lat1 = latitude(init);
+    lon1 = longitude(init);
     
     lat2 = latitude(r);
     lon2 = longitude(r);

@@ -3,6 +3,8 @@
 echo "Cleaning..."
 
 rm *.eps
-rm out.dat
+rm *.dat
 rm Build/orbit
+
+echo "Done."
 

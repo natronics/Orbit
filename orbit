@@ -2,7 +2,9 @@
 
 echo "Running..."
 
-./Build/orbit -c sample.cfg > out.dat
+./Build/orbit -c sample.cfg
+
+echo "Done."
 
 echo "Visualizing..."
 
@@ -11,4 +13,5 @@ gnuplot acc-t.plt
 gnuplot alt-down.plt
 gnuplot vel-t.plt
 
+echo "Done."
 

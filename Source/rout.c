@@ -5,7 +5,7 @@
 #include "coord.h"
 #include "rout.h"
 
-void printLine(state r, double t, double lat_0, double lon_0)
+void printLine(FILE *outfile, state r, double t)
 {
     char format[512] = "";
     char exp[8] = "%0.10e\t";
@@ -39,7 +39,7 @@ void printLine(state r, double t, double lat_0, double lon_0)
     */
     strcat(format, "\n");
     
-    printf( format
+    fprintf(outfile, format
         ,   t                       //1     Time
         ,   r.s[x]                  //2     X
         ,   r.s[y]                  //3     Y
@@ -56,10 +56,10 @@ void printLine(state r, double t, double lat_0, double lon_0)
         ,   lat                     //14    Lat
         ,   lon                     //15    Lon
         ,   altitude(r)             //16    Alt
-        ,   downrange(r, lat_0, lon_0));//17    Downrange
+        ,   downrange(r));          //17    Downrange
 }
 
-void printHeader()
+void printHeader(FILE *outfile)
 {
     char header[512] = "#";
     
@@ -90,5 +90,5 @@ void printHeader()
     */
     strcat(header, "\n");
     
-    printf("%s", header);
+    fprintf(outfile, "%s", header);
 }
