@@ -5,10 +5,8 @@
 #include "coord.h"
 #include "orbit.h"
 #include "physics.h"
+
 #define g_0 9.797645
-#define fuelmass 10
-#define mdot 2.5
-#define Isp 230.0
 
 double mass_f;
 
@@ -18,15 +16,15 @@ vec physics(state r, double t)
    
     //r.m = r.m - (mdot * t); 
     
-    mass_f = fuelmass - (initialRocket().m - r.m);
+    mass_f = FuelMass() - (initialRocket().m - r.m);
     
     g = gravity(r);
     d = drag(r, t);
     th = thrust(r, t);
     
-    physics.i = g.i + d.i + (th.i / r.m);
-    physics.j = g.j + d.j + (th.j / r.m);
-    physics.k = g.k + d.k + (th.k / r.m);
+    physics.i = g.i + d.i + th.i;
+    physics.j = g.j + d.j + th.j;
+    physics.k = g.k + d.k + th.k;
     
     return physics;
 }
@@ -110,9 +108,11 @@ vec thrust(state r, double t)
 
     if (mass_f > 0.0)
     {
-        //phi = 0.1 * t;
-        phi = 0;
-        thrust =  g_0 * Isp * mdot;
+        //phi = 0.00785 * t;
+        phi = 0.785;
+        thrust =  g_0 * I_sp() * mdot();
+        
+        thrust = thrust / r.m;
         
         Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
@@ -135,12 +135,23 @@ vec thrust(state r, double t)
 
 double updateMass(state r, double t)
 {
-    mass_f = fuelmass - (initialRocket().m - r.m);
+    double newMass;
+    
+    mass_f = FuelMass() - (initialRocket().m - r.m);
     
     if (mass_f > 0.0)
     {
-        return r.m - (mdot * t);
+        newMass = initialRocket().m - mdot()*t;
+        if (newMass > EmptyMass())
+        {
+            return newMass;
+        }
+        else
+        {
+            return EmptyMass();
+        }
     }
+    
     return r.m;
 }
 

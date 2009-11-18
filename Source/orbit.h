@@ -4,3 +4,7 @@ state initialRocket();
 void printHelp();
 void printVersion();
 void readConfigFile(char *filename);
+double FuelMass();
+double I_sp();
+double mdot();
+double EmptyMass();

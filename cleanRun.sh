@@ -5,3 +5,6 @@
 ./build.sh
 
 ./orbit
+
+./viz.sh
+
