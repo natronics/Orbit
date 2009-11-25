@@ -93,4 +93,58 @@ void printHeader(FILE *outfile)
     fprintf(outfile, "%s", header);
 }
 
+void BuildBurnPlt(double t_bo)
+{
+    FILE *out;
+    
+    /* Acceleration */
+    out = fopen("acc-burn.plt", "w");
+    
+    // Header
+    fprintf(out, "set title \"Acceleration During Burn\"\n");
+    fprintf(out, "set xlabel \"Time [s]\"\n");
+    fprintf(out, "set ylabel \"Accel [m/s^2\"\n");
+    fprintf(out, "set xrange[0:%f]\n", t_bo + 2.0);
+    fprintf(out, "set term postscript color\n");
+    fprintf(out, "set out \"acc-burn.eps\"\n");
+    
+    // Plot
+    fprintf(out, "plot \"./out.dat\" us 1:(sqrt($8**2 + $9**2 + $10**2)) notitle w lines lw 2\n");
+    
+    fclose(out);
+    
+    /* Velocity */
+    out = fopen("vel-burn.plt", "w");
+    
+    // Header
+    fprintf(out, "set title \"Velocity During Burn\"\n");
+    fprintf(out, "set xlabel \"Time [s]\"\n");
+    fprintf(out, "set ylabel \"Vel [m/s]\"\n");
+    fprintf(out, "set xrange[0:%f]\n", t_bo + 2.0);
+    fprintf(out, "set term postscript color\n");
+    fprintf(out, "set out \"vel-burn.eps\"\n");
+    
+    // Plot
+    fprintf(out, "plot \"./out.dat\" us 1:(sqrt($5**2 + $6**2 + $7**2)) notitle w lines lw 2\n");
+    
+    fclose(out);
+    
+    /* Altitude */
+    out = fopen("alt-burn.plt", "w");
+    
+    // Header
+    fprintf(out, "set title \"Altitude During Burn\"\n");
+    fprintf(out, "set xlabel \"Time [s]\"\n");
+    fprintf(out, "set ylabel \"Alt [m]\"\n");
+    fprintf(out, "set xrange[0:%f]\n", t_bo + 2.0);
+    fprintf(out, "set term postscript color\n");
+    fprintf(out, "set out \"alt-burn.eps\"\n");
+    
+    // Plot
+    fprintf(out, "plot \"./out.dat\" us 1:16 notitle w lines lw 2\n");
+    
+    fclose(out);
+}
+
+
 

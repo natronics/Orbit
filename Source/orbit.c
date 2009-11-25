@@ -13,12 +13,15 @@
 
 struct config_t cfg;
 state initRocket;
+state burnoutRocket;
 double apogee;
 double tburnout;
 double fuelMass;
 double Isp;
 double thrust_init;
 double emptyMass;
+double lastMass;
+double t_bo;
 float h;
 char *outputFileName;
 FILE *out;
@@ -89,10 +92,12 @@ void run()
     rocket = initRocket;
     lastRocket = rocket;
     
-    for (t = 0; t < 10000; t += h)
+    for (t = 0; t < 20000; t += h)
     {
         alt = altitude(rocket);
         lastAlt = altitude(lastRocket);
+        
+        lastMass = lastRocket.m;
         
         if (lastAlt < alt)
         {
@@ -103,13 +108,26 @@ void run()
         {
             break;
         }
-        printLine(out, rocket, t);
+        
+        if ((rocket.m == EmptyMass()) && (lastMass > EmptyMass()))
+        {
+            t_bo = t;
+            burnoutRocket = rocket;
+        }
+        
+        printLine(out, rocket, t);      //Print File
+        //printLineKml(outKml, rocket);   //Print KML File
+        
         lastRocket = rocket;            //LastRocket
         rocket = rk4(rocket, h, t);     //NewRocket
     }
 
-    printf("%s\t%f %s\n", "\t   Apogee: ", apogee, "m");
-    printf("%s\t%f %s\n", "\tDownrange: ", downrange(rocket), "m");
+    printf("%s\t%f %s\n", "\t          Apogee: ", apogee, "m");
+    printf("%s\t%f %s\n", "\t       Downrange: ", downrange(rocket), "m");
+    printf("%s\t%f %s\n", "\t    Burnout Time: ", t_bo, "s");
+    printf("%s\t%f %s\n", "\tBurnout Velocity: ", velocity(burnoutRocket), "m/s");
+    
+    BuildBurnPlt(t_bo);
 }
 
 void readConfigFile(char *filename)
@@ -234,7 +252,7 @@ double I_sp()
 double mdot()
 {
     double mdot;
-    mdot = thrust_init / (9.797645 * Isp);
+    mdot = thrust_init / (g_0 * Isp);
     return mdot;
 }
 

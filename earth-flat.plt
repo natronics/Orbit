@@ -4,7 +4,7 @@
 #    	G N U P L O T
 #    	Version 4.2 patchlevel 4 
 #    	last modified Sep 2008
-#    	System: Linux 2.6.28-15-generic
+#    	System: Linux 2.6.27-1-amd64
 #    
 #    	Copyright (C) 1986 - 1993, 1998, 2004, 2007, 2008
 #    	Thomas Williams, Colin Kelley and many others
@@ -35,17 +35,18 @@ set timefmt cb "%d/%m/%y,%H:%M"
 set boxwidth
 set style fill  empty border
 set style rectangle back fc lt -3 fillstyle  solid 1.00 border -1
-set dummy u,v
+set dummy x,y
 set format x "% g"
 set format y "% g"
 set format x2 "% g"
 set format y2 "% g"
 set format z "% g"
 set format cb "% g"
-set angles degrees
+set angles radians
 unset grid
 set key title ""
-unset key
+set key inside right top vertical Right noreverse enhanced autotitles nobox
+set key noinvert samplen 4 spacing 1 width 0 height 0 
 unset label
 unset arrow
 set style increment default
@@ -57,22 +58,22 @@ set offsets 0, 0, 0, 0
 set pointsize 1
 set encoding default
 unset polar
-set parametric
+unset parametric
 unset decimalsign
-set view 72, 41, 0.995246, 1.04777
+set view 60, 30, 1, 1
 set samples 100, 100
-set isosamples 26, 18
+set isosamples 10, 10
 set surface
 unset contour
 set clabel '%8.3g'
 set mapping cartesian
 set datafile separator whitespace
-set hidden3d offset 1 trianglepattern 3 undefined 1 altdiagonal bentover
+unset hidden3d
 set cntrparam order 4
 set cntrparam linear
 set cntrparam levels auto 5
 set cntrparam points 5
-set size ratio 1 1,1
+set size ratio 0 1,1
 set origin 0,0
 set style data points
 set style function lines
@@ -81,7 +82,7 @@ set yzeroaxis linetype -2 linewidth 1.000
 set zzeroaxis linetype -2 linewidth 1.000
 set x2zeroaxis linetype -2 linewidth 1.000
 set y2zeroaxis linetype -2 linewidth 1.000
-set xyplane at -1.5
+set ticslevel 0.5
 set mxtics default
 set mytics default
 set mztics default
@@ -105,19 +106,19 @@ set timestamp ""
 set timestamp  offset character 0, 0, 0 font "" norotate
 set rrange [ * : * ] noreverse nowriteback  # (currently [0.00000:10.0000] )
 set trange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
-set urange [ 0.00000 : 360.000 ] noreverse nowriteback
-set vrange [ -90.0000 : 90.0000 ] noreverse nowriteback
+set urange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
+set vrange [ * : * ] noreverse nowriteback  # (currently [-5.00000:5.00000] )
 set xlabel "" 
 set xlabel  offset character 0, 0, 0 font "" textcolor lt -1 norotate
 set x2label "" 
 set x2label  offset character 0, 0, 0 font "" textcolor lt -1 norotate
-set xrange [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
+set xrange [ -180.000 : 180.000 ] noreverse nowriteback
 set x2range [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
 set ylabel "" 
 set ylabel  offset character 0, 0, 0 font "" textcolor lt -1 rotate by 90
 set y2label "" 
 set y2label  offset character 0, 0, 0 font "" textcolor lt -1 rotate by 90
-set yrange [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
+set yrange [ -90.0000 : 90.0000 ] noreverse nowriteback
 set y2range [ * : * ] noreverse nowriteback  # (currently [-10.0000:10.0000] )
 set zlabel "" 
 set zlabel  offset character 0, 0, 0 font "" textcolor lt -1 norotate
@@ -141,16 +142,6 @@ set colorbox vertical origin screen 0.9, 0.2, 0 size screen 0.05, 0.6, 0 front b
 set loadpath 
 set fontpath 
 set fit noerrorvariables
-set size square
-
-set xrange[-2:2]
-set yrange[-2:2]
-set zrange[-2:2]
-
-a = 1
-r = 6.3781e6
-splot a*cos(u)*cos(v),a*sin(u)*cos(v),a*sin(v) lt 5 lw 0.2, \
-"./xyzEarth.map" us 1:2:3 w lines lt 2 lw 0.5, \
-"./out.dat" us ($2/r):($3/r):($4/r) every 100 w lines lt 1 lw 1
-
+GNUTERM = "wxt"
+plot "./out.dat" us 15:14 every 100 w points, "./lat-lon.map" us 2:1 w lines
 #    EOF

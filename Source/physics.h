@@ -1,6 +1,7 @@
 #define G -6.6730e-11
 #define Re 6378137.0 
 #define Me 5.9742e24
+#define g_0 9.80665
 
 vec physics(state r, double t);
 vec gravity(state r);

@@ -6,8 +6,6 @@
 #include "orbit.h"
 #include "physics.h"
 
-#define g_0 9.797645
-
 double mass_f;
 
 vec physics(state r, double t)
@@ -35,6 +33,7 @@ vec gravity(state r)
     double gravity;
     
     gravity = G * (Me/square(position(r)));
+    //gravity = -g_0;
     e = unitVec(r.s);
 
     g.i = gravity * e.i;
@@ -108,8 +107,8 @@ vec thrust(state r, double t)
 
     if (mass_f > 0.0)
     {
-        //phi = 0.00785 * t;
-        phi = 0.785;
+        phi = 0.012 * t;
+        //phi = 0.0;
         thrust =  g_0 * I_sp() * mdot();
         
         thrust = thrust / r.m;
