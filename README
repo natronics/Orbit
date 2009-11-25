@@ -1,5 +1,4 @@
-Install gcc, and libconfig
+Install gcc, libconfig, and gnuplot
 
-run build.sh
+run cleanRun.sh
 
-run orbit
