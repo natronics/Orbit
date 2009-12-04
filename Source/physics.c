@@ -46,7 +46,7 @@ vec gravity(state r)
 vec drag(state r , double t)
 {
     vec d, v;
-    double Cd = 1.0;
+    double Cd = 0.75;
     double A = 0.01539;
     double totalDrag, h;
     
@@ -58,10 +58,11 @@ vec drag(state r , double t)
     // A for Droge: 1.04m^2
     // A for Main: 14.4
     
-    /*
+    
     v = unitVec(r.U);
     h = altitude(r);
     
+    /*
     if (h >= 594.3)
     {
         A = 0.016;
@@ -77,6 +78,7 @@ vec drag(state r , double t)
         A = 14.4;
         Cd = 0.62;
     }
+    */
     
     
     totalDrag = -(0.5 * rho(h) * velocity(r)*velocity(r) * A  * Cd)/r.m;
@@ -86,10 +88,11 @@ vec drag(state r , double t)
     d.k = totalDrag * v.k;
     
     
-    */
+    /*
     d.i = 0.0;
     d.j = 0.0;
     d.k = 0.0;
+    */
     
 
     return d;
@@ -104,11 +107,12 @@ vec thrust(state r, double t)
     vec Ft_enu, Ft_ecef;
     double thrust;
     double phi;
+    double rate = (PI / 2.0)/210.0;
 
     if (mass_f > 0.0)
     {
-        phi = 0.012 * t;
-        //phi = 0.0;
+        phi = rate * t;
+        //phi = 0.07;
         thrust =  g_0 * I_sp() * mdot();
         
         thrust = thrust / r.m;

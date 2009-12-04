@@ -1,8 +1,0 @@
-#!/bin/bash
-
-echo "Running..."
-
-./Build/orbit -c sample.cfg
-
-echo "Done."
-

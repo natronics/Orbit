@@ -7,6 +7,7 @@
 state rk4(state r, float h, double t)
 {
     double k[4], l[4], p[4], q[4], u[4], v[4], U_n[3], s_n[3];
+    vec phys;
     
     /* Fisrt Steps */
     U_n[x] = r.U[x];                    
@@ -16,17 +17,19 @@ state rk4(state r, float h, double t)
     U_n[z] = r.U[z];                    
     s_n[z] = r.s[z];
     
+    phys = physics(r, t);
+    
     //X
     k[0] = U_n[x];                      
-    l[0] = physics(r, t).i;             
+    l[0] = phys.i;             
     
     //Y
     p[0] = U_n[y];                      
-    q[0] = physics(r, t).j;         
+    q[0] = phys.j;         
     
     //Z
     u[0] = U_n[z];                      
-    v[0] = physics(r, t).k;            
+    v[0] = phys.k;            
     
     /* Second Steps */
     r.U[x] = U_n[x] + 0.5*h*l[0];       
@@ -36,17 +39,19 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 0.5*h*v[0];       
     r.s[z] = s_n[z] + 0.5*h*u[0];
     
+    phys = physics(r, t + 0.5*h);
+    
     //X
     k[1] = r.U[x];
-    l[1] = physics(r, t + 0.5*h).i;             
+    l[1] = phys.i;             
    
     //Y
     p[1] = r.U[y];
-    q[1] = physics(r, t + 0.5*h).j;      
+    q[1] = phys.j;      
     
     //Z
     u[1] = r.U[z];
-    v[1] = physics(r, t + 0.5*h).k;          
+    v[1] = phys.k;          
     
     /* Thid Steps */
     r.U[x] = U_n[x] + 0.5*h*l[1];
@@ -56,17 +61,19 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 0.5*h*v[1];
     r.s[z] = s_n[z] + 0.5*h*u[1];
     
+    phys = physics(r, t + 0.5*h);
+    
     //X
     k[2] = r.U[x];
-    l[2] = physics(r, t + 0.5*h).i;             
+    l[2] = phys.i;             
     
     //Y
     p[2] = r.U[y];
-    q[2] = physics(r, t + 0.5*h).j;         
+    q[2] = phys.j;         
     
     //Z
     u[2] = r.U[z];
-    v[2] = physics(r, t + 0.5*h).k; 
+    v[2] = phys.k; 
     
     /* Fourth Steps */
     r.U[x] = U_n[x] + h*l[2];
@@ -76,17 +83,19 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + h*v[2];
     r.s[z] = s_n[z] + h*u[2];
     
+    phys = physics(r, t + h);
+    
     //X
     k[3] = r.U[x];
-    l[3] = physics(r, t + h).i;     
+    l[3] = phys.i;     
     
     //Y
     p[3] = r.U[y];
-    q[3] = physics(r, t + h).j;      
+    q[3] = phys.j;      
     
     //Z
     u[3] = r.U[z];
-    v[3] = physics(r, t + h).k;   
+    v[3] = phys.k;   
     
     /* Add it up */
     r.U[x] = U_n[x] + 1/6.0*h*(l[0] + 2*l[1] + 2*l[2] + l[3]);
@@ -98,9 +107,11 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 1/6.0*h*(v[0] + 2*v[1] + 2*v[2] + v[3]);
     r.s[z] = s_n[z] + 1/6.0*h*(u[0] + 2*u[1] + 2*u[2] + u[3]);
     
-    r.a[x] = physics(r, t + h).i;
-    r.a[y] = physics(r, t + h).j;
-    r.a[z] = physics(r, t + h).k;
+    phys = physics(r, t + h);
+    
+    r.a[x] = phys.i;
+    r.a[y] = phys.j;
+    r.a[z] = phys.k;
     
     r.m = updateMass(r, t);
     return r;

@@ -92,7 +92,7 @@ void run()
     rocket = initRocket;
     lastRocket = rocket;
     
-    for (t = 0; t < 20000; t += h)
+    for (t = 0; t < 6580; t += h)
     {
         alt = altitude(rocket);
         lastAlt = altitude(lastRocket);
@@ -127,7 +127,7 @@ void run()
     printf("%s\t%f %s\n", "\t    Burnout Time: ", t_bo, "s");
     printf("%s\t%f %s\n", "\tBurnout Velocity: ", velocity(burnoutRocket), "m/s");
     
-    BuildBurnPlt(t_bo);
+    //BuildBurnPlt(t_bo);
 }
 
 void readConfigFile(char *filename)

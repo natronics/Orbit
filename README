@@ -1,4 +1,4 @@
 Install gcc, libconfig, and gnuplot
 
-run cleanRun.sh
+run 'run.sh' to build, run and vizulize the data
 
