@@ -1,10 +1,7 @@
-int main(int argc, char **argv);
-void run();
 state initialRocket();
-void printHelp();
-void printVersion();
-void readConfigFile(char *filename);
-double FuelMass();
 double I_sp();
 double mdot();
-double EmptyMass();
+void setNewMode(unsigned int mode);
+unsigned int getNewMode();
+unsigned int hasNewMode();
+double BeginTime();

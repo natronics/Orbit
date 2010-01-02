@@ -1,5 +1,8 @@
 *.out
 *.eps
 *.dat
+*.kml
 Build/orbit
+Output/*.html
+Output/*.png
 

@@ -4,8 +4,7 @@
 #include "vecmath.h"
 #include "physics.h"
 #include "coord.h"
-
-
+#include "orbit.h"
 
 double altitude(state r)
 {
@@ -98,6 +97,32 @@ vec cartesian(double rho, double theta, double phi)
     return cart;
 }
 
+
+/**
+ * Law of spherical cosines:
+ * http://www.movable-type.co.uk/scripts/latlong.html
+ */
+double downrange(state r)
+{
+    double lat2, lon2, a;
+    double lat1, lon1;
+    double d;
+    state init;
+    
+    init = initialRocket();
+    
+    lat1 = latitude(init);
+    lon1 = longitude(init);
+    
+    lat2 = latitude(r);
+    lon2 = longitude(r);
+    
+    a = sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lon2-lon1);
+    d = acos(a)*Re;
+    
+    return d;
+}
+
 double radians(double degrees)
 {
     return (PI / 180.0) * degrees;
@@ -113,3 +138,56 @@ double degrees(double radians)
     return degree;
 }
 
+TimeHMS MjdToUtc(double JD)
+{
+    TimeHMS Utc;
+    double hour, min, sec;
+    double intJd;                   //Throw away
+    double decDay, decHour, decMin;
+    
+    decDay = modf(JD, &intJd);
+    decHour = decDay * 24;          //Get into Hours
+    decMin = modf(decHour, &hour);
+    decMin *= 60;                   //Decimal to Sexagesimal
+    sec = modf(decMin, &min);
+    sec *= 60;                      //Decimal to Sexagesimal
+    
+    Utc.hour = (int) hour;
+    Utc.minute = (int) min;
+    Utc.second = sec;
+
+    return Utc;
+}
+
+TimeHMS MjdToCivilTime(double JD, int offset)
+{
+    TimeHMS Utc;
+    TimeHMS local;
+    
+    Utc = MjdToUtc(JD);
+    
+    local = Utc;
+    local.hour += offset;
+    
+    if (local.hour < 0)
+        local.hour += 12;
+    else if (local.hour > 12)
+        local.hour -= 12;
+        
+    return local;
+}
+
+double JdToMjd(double jd)
+{
+    return jd - 2400000.5;
+}
+
+double SecondsToDecDay(double seconds)
+{
+    return seconds / 86400.0;
+}
+
+double DecDayToSeconds(double decDay)
+{
+    return decDay * 86400.0;
+}

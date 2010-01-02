@@ -15,5 +15,5 @@ double position(state r);
 double acceleration(state r);
 double KE(state r);
 double PE(state r);
-double downrange(state r);
-double updateMass(state r, double t);
+double updateFuelMass(state r, double t);
+double totalMass(mass m);

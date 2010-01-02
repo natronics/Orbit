@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "structs.h"
 #include "physics.h"
 #include "rk4.h"
@@ -113,6 +115,14 @@ state rk4(state r, float h, double t)
     r.a[y] = phys.j;
     r.a[z] = phys.k;
     
-    r.m = updateMass(r, t);
+    r.m.fuel = updateFuelMass(r, t);
+
+    if (hasNewMode() == 1)
+    {
+        //printf("new mode! %d:", r.mode);
+        r.mode = getNewMode();
+        //printf("%d\n", r.mode);
+    }
+
     return r;
 }

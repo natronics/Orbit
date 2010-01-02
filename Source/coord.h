@@ -5,6 +5,11 @@ matrix3 enu(state r);
 vec matrixMath(vec v, matrix3 m);
 vec ecefFromEnu(vec _enu, state r);
 vec cartesian(double rho, double theta, double phi);
+double downrange(state r);
 double radians(double degrees);
 double degrees(double radians);
-
+TimeHMS MjdToUtc(double JD);
+TimeHMS MjdToCivilTime(double JD, int offset);
+double JdToMjd(double jd);
+double SecondsToDecDay(double seconds);
+double DecDayToSeconds(double decDay);

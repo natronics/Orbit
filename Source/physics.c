@@ -6,15 +6,9 @@
 #include "orbit.h"
 #include "physics.h"
 
-double mass_f;
-
 vec physics(state r, double t)
 {
     vec g, d, th, physics;
-   
-    //r.m = r.m - (mdot * t); 
-    
-    mass_f = FuelMass() - (initialRocket().m - r.m);
     
     g = gravity(r);
     d = drag(r, t);
@@ -33,7 +27,6 @@ vec gravity(state r)
     double gravity;
     
     gravity = G * (Me/square(position(r)));
-    //gravity = -g_0;
     e = unitVec(r.s);
 
     g.i = gravity * e.i;
@@ -50,51 +43,22 @@ vec drag(state r , double t)
     double A = 0.01539;
     double totalDrag, h;
     
-    // Cd for closed module: 1
-    // Droge Cd 0.62
-    // Main Cd 0.62
-    
-    // A for closed: 0.01539m^2
-    // A for Droge: 1.04m^2
-    // A for Main: 14.4
-    
-    
+    /*
     v = unitVec(r.U);
     h = altitude(r);
     
-    /*
-    if (h >= 594.3)
-    {
-        A = 0.016;
-        Cd = 1.0;
-    }
-    else if (h >= 365.75)
-    {
-        A = 1.04;
-        Cd = 0.62;
-    }
-    else 
-    {
-        A = 14.4;
-        Cd = 0.62;
-    }
-    */
-    
-    
-    totalDrag = -(0.5 * rho(h) * velocity(r)*velocity(r) * A  * Cd)/r.m;
+    totalDrag = -(0.5 * rho(h) * velocity(r)*velocity(r) * A  * Cd)/totalMass(r.m);
     
     d.i = totalDrag * v.i;
     d.j = totalDrag * v.j;
     d.k = totalDrag * v.k;
     
-    
-    /*
+    */
     d.i = 0.0;
     d.j = 0.0;
     d.k = 0.0;
-    */
     
-
+    
     return d;
 }
 
@@ -107,15 +71,15 @@ vec thrust(state r, double t)
     vec Ft_enu, Ft_ecef;
     double thrust;
     double phi;
-    double rate = (PI / 2.0)/210.0;
+    double rate = radians(40.0) / 100.0;
 
-    if (mass_f > 0.0)
+    if (r.mode == BURNING)
     {
-        phi = rate * t;
-        //phi = 0.07;
+        //phi = rate * t + phi_init;
+        phi = radians(6.0);
         thrust =  g_0 * I_sp() * mdot();
         
-        thrust = thrust / r.m;
+        thrust = thrust / totalMass(r.m);
         
         Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
@@ -136,26 +100,26 @@ vec thrust(state r, double t)
     return Ft;
 }
 
-double updateMass(state r, double t)
+double updateFuelMass(state r, double t)
 {
-    double newMass;
+    double newFuelMass;
+    double currentFuelMass = r.m.fuel;
     
-    mass_f = FuelMass() - (initialRocket().m - r.m);
-    
-    if (mass_f > 0.0)
+    if (currentFuelMass > 0.0)
     {
-        newMass = initialRocket().m - mdot()*t;
-        if (newMass > EmptyMass())
+        newFuelMass = initialRocket().m.fuel - mdot()*t;
+        if (newFuelMass > 0.0)
         {
-            return newMass;
+            return newFuelMass;
         }
         else
         {
-            return EmptyMass();
+            setNewMode(COASING);
+            return 0.0;
         }
     }
     
-    return r.m;
+    return r.m.fuel;
 }
 
 double rho(double h)
@@ -208,35 +172,17 @@ double acceleration(state r)
 
 double KE(state r)
 {
-    return 0.5 * r.m * square(velocity(r));
+    return 0.5 * totalMass(r.m) * square(velocity(r));
 }
 
 double PE(state r)
 {
-    return (G * Me * r.m)/position(r) - (G * Me * r.m)/Re;
+    return (G * Me * totalMass(r.m))/position(r) - (G * Me * totalMass(r.m))/Re;
 }
 
-/**
- * Law of spherical cosines:
- * http://www.movable-type.co.uk/scripts/latlong.html
- */
-double downrange(state r)
+double totalMass(mass m)
 {
-    double lat2, lon2, a;
-    double lat1, lon1;
-    double d;
-    state init;
-    
-    init = initialRocket();
-    
-    lat1 = latitude(init);
-    lon1 = longitude(init);
-    
-    lat2 = latitude(r);
-    lon2 = longitude(r);
-    
-    a = sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lon2-lon1);
-    d = acos(a)*Re;
-    
-    return d;
+    return m.fuel + m.structure;
+    //return 10.0;
 }
+

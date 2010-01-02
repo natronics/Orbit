@@ -13,18 +13,21 @@
 
 struct config_t cfg;
 state initRocket;
-state burnoutRocket;
-double apogee;
-double tburnout;
-double fuelMass;
 double Isp;
 double thrust_init;
-double emptyMass;
-double lastMass;
-double t_bo;
+double beginTime;
 float h;
 char *outputFileName;
-FILE *out;
+unsigned int hasNewModeBool = 0;
+unsigned int newMode = 0;
+FILE *outBurn;
+FILE *outCoast;
+FILE *outKml;
+
+void printHelp();
+void printVersion();
+void readConfigFile(char *filename);
+void run();
 
 /**
  * ToOrbit Sim
@@ -63,19 +66,34 @@ int main(int argc, char **argv)
     /* Read the config file */
     readConfigFile(file);
     
-    // Open output file for editing
-    out = fopen(outputFileName, "w");
+    // Open output files for editing
+    outBurn = fopen("Output/out-burn.dat", "w");
+    outCoast = fopen("Output/out-coast.dat", "w");
+    outKml = fopen("Output/out.kml", "w");
     
-    // Print header
-    printHeader(out);
+    if (outBurn == NULL || outCoast == NULL || outKml == NULL)
+    {
+        printf("File Handle error.");
+        exit(1);
+    }
     
-    /* Do it */
+    // Print Headers
+    PrintHeader(outBurn);
+    PrintHeader(outCoast);
+    PrintKmlHeader(outKml);
+    
+    // Do it
     run();
     
-    // close file
-    fclose(out);
+    // Print Footers
+    PrintKmlFooter(outKml);
     
-    /* exit */
+    // close file
+    fclose(outBurn);
+    fclose(outCoast);
+    fclose(outKml);
+    
+    // exit
     return 0;
 }
 
@@ -83,25 +101,45 @@ int main(int argc, char **argv)
  * Handles the actual running of the program
  */
 void run()
-{
-    double t;
-    double alt, lastAlt, mass_f;
+{   
+    double lastTime;
+    double Jd, Mjd, Met;
+    double alt, lastAlt;
+    unsigned int mode, lastMode;
     int i;
     state rocket, lastRocket;
+    state burnoutRocket;
+    state apogeeRocket;
+    double time_bo;         //JD
+    double time_apogee;     //JD
+
+    /*
+    The Julian date for CE  2010 May  6 14:15:38.2 UT is
+    JD 2455323.09419
+    */
+
+    Jd = 2455323.09419;
+    Mjd = JdToMjd(Jd);
+    beginTime = Mjd;
     
-    rocket = initRocket;
-    lastRocket = rocket;
+    rocket = initialRocket();
+    lastRocket = initialRocket();
     
-    for (t = 0; t < 6580; t += h)
+    lastTime = 0;
+    for (Met = 0; Met < 10000; Met += h)
     {
+        Mjd += SecondsToDecDay(h);
+        
         alt = altitude(rocket);
         lastAlt = altitude(lastRocket);
         
-        lastMass = lastRocket.m;
+        mode = rocket.mode;
+        lastMode = lastRocket.mode;
         
         if (lastAlt < alt)
         {
-            apogee = lastAlt;
+            apogeeRocket = rocket;
+            time_apogee = Mjd;
         }
         
         if (alt < -1) // hit ground
@@ -109,25 +147,32 @@ void run()
             break;
         }
         
-        if ((rocket.m == EmptyMass()) && (lastMass > EmptyMass()))
+        if (mode == BURNING)
         {
-            t_bo = t;
-            burnoutRocket = rocket;
+            PrintLine(outBurn, Mjd, Met, rocket);       //Print File
+        }
+        else
+        {
+            if (lastMode == BURNING)
+            {
+                burnoutRocket = lastRocket;
+                time_bo = Mjd;
+            }
+            PrintLine(outCoast, Mjd, Met, rocket);      //Print File
+        }  
+        
+        if ( (Met - lastTime) > 1.0 )
+        {
+            PrintKmlLine(outKml, rocket);
+            lastTime = Met;
         }
         
-        printLine(out, rocket, t);      //Print File
-        //printLineKml(outKml, rocket);   //Print KML File
-        
-        lastRocket = rocket;            //LastRocket
-        rocket = rk4(rocket, h, t);     //NewRocket
+        lastRocket = rocket;                //LastRocket
+        rocket = rk4(rocket, h, Met);       //NewRocket
     }
 
-    printf("%s\t%f %s\n", "\t          Apogee: ", apogee, "m");
-    printf("%s\t%f %s\n", "\t       Downrange: ", downrange(rocket), "m");
-    printf("%s\t%f %s\n", "\t    Burnout Time: ", t_bo, "s");
-    printf("%s\t%f %s\n", "\tBurnout Velocity: ", velocity(burnoutRocket), "m/s");
-    
-    //BuildBurnPlt(t_bo);
+    PrintResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
+    PrintHtmlResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
 }
 
 void readConfigFile(char *filename)
@@ -199,8 +244,8 @@ void readConfigFile(char *filename)
             double U_z = (double) config_setting_get_float_elem(vel, 2);
             
             // Rocket
-            emptyMass = (double) config_setting_get_float(emass);
-            fuelMass = (double) config_setting_get_float(fmass);
+            double emptyMass = (double) config_setting_get_float(emass);
+            double fuelMass = (double) config_setting_get_float(fmass);
             Isp = (double) config_setting_get_float(isp);
             thrust_init = (double) config_setting_get_float(thrust);
             double length = (double) config_setting_get_float(leng);
@@ -221,15 +266,16 @@ void readConfigFile(char *filename)
             initRocket.U[x] = U_ecef.i;
             initRocket.U[y] = U_ecef.j;
             initRocket.U[z] = U_ecef.k;
-            
-            initRocket.m = emptyMass + fuelMass;
-            
+
+            initRocket.m.structure = emptyMass;
+            initRocket.m.fuel = fuelMass;
+
             vec accel = physics(initRocket, 0);
             initRocket.a[x] = accel.i;
             initRocket.a[y] = accel.j;
             initRocket.a[z] = accel.k;
             
-            initRocket.mode = 0;
+            initRocket.mode = BURNING;
         }
     }
 }
@@ -237,11 +283,6 @@ void readConfigFile(char *filename)
 state initialRocket()
 {
     return initRocket;
-}
-
-double FuelMass()
-{
-    return fuelMass;
 }
 
 double I_sp()
@@ -256,9 +297,26 @@ double mdot()
     return mdot;
 }
 
-double EmptyMass()
+void setNewMode(unsigned int mode)
 {
-    return emptyMass;
+    newMode = mode;
+    hasNewModeBool = 1;
+}
+
+unsigned int getNewMode()
+{
+    hasNewModeBool = 0;
+    return newMode;
+}
+
+unsigned int hasNewMode()
+{
+    return hasNewModeBool;
+}
+
+double BeginTime()
+{
+    return beginTime;
 }
 
 void printHelp()
