@@ -23,6 +23,15 @@ void PrintLine(FILE *outfile, double Mjd, double t, state r);
 void PrintHeader(FILE *outfile);
 
 /*!
+ * Prints a line in the output file that tracks forces
+ * \param outfile The file to write to
+ * \param t The current time in mission elapsed time in seconds
+ * \param Jd The time in Julian Date
+ * \param rocket The current state
+ */
+void PrintForceLine(FILE *outfile, double jd, double t, state r);
+
+/*!
  * Prints the results of an entire simulation to the screen.
  * It gets it's initial state and time information from orbit.h
  * \param burnout A rocket State at time of burnout.
@@ -34,4 +43,6 @@ void PrintResult(state burnout, state apogee, double t_bo, double t_apogee);
 void PrintKmlHeader(FILE *outfile);
 void PrintKmlFooter(FILE *outfile);
 void PrintKmlLine(FILE *outfile, state r);
-void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee);
+void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, double runTime);
+void MakePltFiles();
+

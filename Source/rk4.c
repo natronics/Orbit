@@ -19,7 +19,7 @@ state rk4(state r, float h, double t)
     U_n[z] = r.U[z];                    
     s_n[z] = r.s[z];
     
-    phys = physics(r, t);
+    phys = DoPhysics(r, t);
     
     //X
     k[0] = U_n[x];                      
@@ -41,7 +41,7 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 0.5*h*v[0];       
     r.s[z] = s_n[z] + 0.5*h*u[0];
     
-    phys = physics(r, t + 0.5*h);
+    phys = DoPhysics(r, t + 0.5*h);
     
     //X
     k[1] = r.U[x];
@@ -63,7 +63,7 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 0.5*h*v[1];
     r.s[z] = s_n[z] + 0.5*h*u[1];
     
-    phys = physics(r, t + 0.5*h);
+    phys = DoPhysics(r, t + 0.5*h);
     
     //X
     k[2] = r.U[x];
@@ -85,7 +85,7 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + h*v[2];
     r.s[z] = s_n[z] + h*u[2];
     
-    phys = physics(r, t + h);
+    phys = DoPhysics(r, t + h);
     
     //X
     k[3] = r.U[x];
@@ -109,7 +109,7 @@ state rk4(state r, float h, double t)
     r.U[z] = U_n[z] + 1/6.0*h*(v[0] + 2*v[1] + 2*v[2] + v[3]);
     r.s[z] = s_n[z] + 1/6.0*h*(u[0] + 2*u[1] + 2*u[2] + u[3]);
     
-    phys = physics(r, t + h);
+    phys = DoPhysics(r, t + h);
     
     r.a[x] = phys.i;
     r.a[y] = phys.j;

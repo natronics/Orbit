@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <libconfig.h>
 #include <stdlib.h>
+#include <time.h>
 #include "structs.h"
 #include "coord.h"
 #include "physics.h"
@@ -8,8 +9,6 @@
 #include "rout.h"
 #include "rk4.h"
 #include "orbit.h"
-
-#define VERSION 0.1
 
 struct config_t cfg;
 state initRocket;
@@ -23,6 +22,7 @@ unsigned int newMode = 0;
 FILE *outBurn;
 FILE *outCoast;
 FILE *outKml;
+FILE *outForce;
 
 void printHelp();
 void printVersion();
@@ -70,8 +70,12 @@ int main(int argc, char **argv)
     outBurn = fopen("Output/out-burn.dat", "w");
     outCoast = fopen("Output/out-coast.dat", "w");
     outKml = fopen("Output/out.kml", "w");
+    outForce = fopen("Output/out-force.dat", "w");
     
-    if (outBurn == NULL || outCoast == NULL || outKml == NULL)
+    if (   outBurn == NULL 
+        || outCoast == NULL 
+        || outKml == NULL
+        || outForce == NULL )
     {
         printf("File Handle error.");
         exit(1);
@@ -112,6 +116,10 @@ void run()
     state apogeeRocket;
     double time_bo;         //JD
     double time_apogee;     //JD
+    clock_t start, end;
+    double elapsed;
+
+    start = clock();
 
     /*
     The Julian date for CE  2010 May  6 14:15:38.2 UT is
@@ -119,16 +127,15 @@ void run()
     */
 
     Jd = 2455323.09419;
-    Mjd = JdToMjd(Jd);
-    beginTime = Mjd;
+    beginTime = Jd;
     
-    rocket = initialRocket();
-    lastRocket = initialRocket();
+    rocket = InitialRocket();
+    lastRocket = InitialRocket();
     
     lastTime = 0;
     for (Met = 0; Met < 10000; Met += h)
     {
-        Mjd += SecondsToDecDay(h);
+        Jd += SecondsToDecDay(h);
         
         alt = altitude(rocket);
         lastAlt = altitude(lastRocket);
@@ -139,7 +146,7 @@ void run()
         if (lastAlt < alt)
         {
             apogeeRocket = rocket;
-            time_apogee = Mjd;
+            time_apogee = Jd;
         }
         
         if (alt < -1) // hit ground
@@ -149,16 +156,17 @@ void run()
         
         if (mode == BURNING)
         {
-            PrintLine(outBurn, Mjd, Met, rocket);       //Print File
+            PrintLine(outBurn, Jd, Met, rocket);       //Print File
+            PrintForceLine(outForce, Jd, Met, rocket); //Print File
         }
         else
         {
             if (lastMode == BURNING)
             {
                 burnoutRocket = lastRocket;
-                time_bo = Mjd;
+                time_bo = Jd;
             }
-            PrintLine(outCoast, Mjd, Met, rocket);      //Print File
+            PrintLine(outCoast, Jd, Met, rocket);      //Print File
         }  
         
         if ( (Met - lastTime) > 1.0 )
@@ -171,8 +179,12 @@ void run()
         rocket = rk4(rocket, h, Met);       //NewRocket
     }
 
+    end = clock();
+    elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
+
     PrintResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
-    PrintHtmlResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
+    PrintHtmlResult(burnoutRocket, apogeeRocket, time_bo, time_apogee, elapsed);
+    MakePltFiles();
 }
 
 void readConfigFile(char *filename)
@@ -270,7 +282,7 @@ void readConfigFile(char *filename)
             initRocket.m.structure = emptyMass;
             initRocket.m.fuel = fuelMass;
 
-            vec accel = physics(initRocket, 0);
+            vec accel = DoPhysics(initRocket, 0);
             initRocket.a[x] = accel.i;
             initRocket.a[y] = accel.j;
             initRocket.a[z] = accel.k;
@@ -280,7 +292,7 @@ void readConfigFile(char *filename)
     }
 }
 
-state initialRocket()
+state InitialRocket()
 {
     return initRocket;
 }

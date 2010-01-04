@@ -1,19 +1,32 @@
-#include <math.h>
-#include <stdio.h>
 #include "structs.h"
 #include "vecmath.h"
 #include "physics.h"
 #include "coord.h"
 #include "orbit.h"
 
+double Position(state r)
+{
+    return quad(r.s[x], r.s[y], r.s[z]);
+}
+
+double Velocity(state r)
+{
+    return quad(r.U[x], r.U[y], r.U[z]);
+}
+
+double Acceleration(state r)
+{
+    return quad(r.a[x], r.a[y], r.a[z]);
+}
+
 double altitude(state r)
 {
-    return position(r) - Re;
+    return Position(r) - Re;
 }
 
 double latitude(state r)
 {
-    double a = r.s[z]/position(r);
+    double a = r.s[z]/Position(r);
     return PI/2.0 - acos(a);
 }
 
@@ -109,7 +122,7 @@ double downrange(state r)
     double d;
     state init;
     
-    init = initialRocket();
+    init = InitialRocket();
     
     lat1 = latitude(init);
     lon1 = longitude(init);
@@ -138,48 +151,14 @@ double degrees(double radians)
     return degree;
 }
 
-TimeHMS MjdToUtc(double JD)
+time_t JdToUnixTime(double JD)
 {
-    TimeHMS Utc;
-    double hour, min, sec;
-    double intJd;                   //Throw away
-    double decDay, decHour, decMin;
+    double unixTime;
+    time_t unixT;
     
-    decDay = modf(JD, &intJd);
-    decHour = decDay * 24;          //Get into Hours
-    decMin = modf(decHour, &hour);
-    decMin *= 60;                   //Decimal to Sexagesimal
-    sec = modf(decMin, &min);
-    sec *= 60;                      //Decimal to Sexagesimal
-    
-    Utc.hour = (int) hour;
-    Utc.minute = (int) min;
-    Utc.second = sec;
-
-    return Utc;
-}
-
-TimeHMS MjdToCivilTime(double JD, int offset)
-{
-    TimeHMS Utc;
-    TimeHMS local;
-    
-    Utc = MjdToUtc(JD);
-    
-    local = Utc;
-    local.hour += offset;
-    
-    if (local.hour < 0)
-        local.hour += 12;
-    else if (local.hour > 12)
-        local.hour -= 12;
-        
-    return local;
-}
-
-double JdToMjd(double jd)
-{
-    return jd - 2400000.5;
+    unixTime = (JD - 2440587.5) * 86400;
+    unixT = (time_t) unixTime;
+    return unixT;
 }
 
 double SecondsToDecDay(double seconds)

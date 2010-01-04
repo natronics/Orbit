@@ -7,6 +7,5 @@
 
 typedef struct {double i; double j; double k;} vec;
 typedef struct {double fuel; double structure;} mass;
-typedef struct {int hour; int minute; double second;} TimeHMS;
 typedef struct {double s[3]; double U[3]; double a[3]; mass m; unsigned int mode;} state;
 typedef struct {double m[3][3];} matrix3;

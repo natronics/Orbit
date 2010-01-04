@@ -6,27 +6,32 @@
 #include "orbit.h"
 #include "physics.h"
 
-vec physics(state r, double t)
+vec force_Gravity(state r);
+double rho(double h);
+double zTemperature(double h);
+
+vec DoPhysics(state r, double t)
 {
     vec g, d, th, physics;
+    double mass = TotalMass(r.m);
     
-    g = gravity(r);
-    d = drag(r, t);
-    th = thrust(r, t);
+    g = force_Gravity(r);
+    d = Force_Drag(r, t);
+    th = Force_Thrust(r, t);
     
-    physics.i = g.i + d.i + th.i;
-    physics.j = g.j + d.j + th.j;
-    physics.k = g.k + d.k + th.k;
+    physics.i = (g.i + d.i + th.i) / mass;
+    physics.j = (g.j + d.j + th.j) / mass;
+    physics.k = (g.k + d.k + th.k) / mass;
     
     return physics;
 }
 
-vec gravity(state r)
+vec force_Gravity(state r)
 {
     vec g, e;
     double gravity;
     
-    gravity = G * (Me/square(position(r)));
+    gravity = G * ((Me + TotalMass(r.m))/square(Position(r)));
     e = unitVec(r.s);
 
     g.i = gravity * e.i;
@@ -36,7 +41,7 @@ vec gravity(state r)
     return g;
 }
 
-vec drag(state r , double t)
+vec Force_Drag(state r , double t)
 {
     vec d, v;
     double Cd = 0.75;
@@ -47,7 +52,7 @@ vec drag(state r , double t)
     v = unitVec(r.U);
     h = altitude(r);
     
-    totalDrag = -(0.5 * rho(h) * velocity(r)*velocity(r) * A  * Cd)/totalMass(r.m);
+    totalDrag = -(0.5 * rho(h) * Velocity(r)*Velocity(r) * A  * Cd);
     
     d.i = totalDrag * v.i;
     d.j = totalDrag * v.j;
@@ -65,7 +70,7 @@ vec drag(state r , double t)
 /**
  * Thrust on the rocket
  */
-vec thrust(state r, double t)
+vec Force_Thrust(state r, double t)
 {
     vec Ft;
     vec Ft_enu, Ft_ecef;
@@ -78,8 +83,6 @@ vec thrust(state r, double t)
         //phi = rate * t + phi_init;
         phi = radians(6.0);
         thrust =  g_0 * I_sp() * mdot();
-        
-        thrust = thrust / totalMass(r.m);
         
         Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
@@ -107,7 +110,7 @@ double updateFuelMass(state r, double t)
     
     if (currentFuelMass > 0.0)
     {
-        newFuelMass = initialRocket().m.fuel - mdot()*t;
+        newFuelMass = InitialRocket().m.fuel - mdot()*t;
         if (newFuelMass > 0.0)
         {
             return newFuelMass;
@@ -154,33 +157,17 @@ double zTemperature(double h)
    return -100.0;
 }
 
-
-double velocity(state r)
-{
-    return quad(r.U[x], r.U[y], r.U[z]);
-}
-
-double position(state r)
-{
-    return quad(r.s[x], r.s[y], r.s[z]);
-}
-
-double acceleration(state r)
-{
-    return quad(r.a[x], r.a[y], r.a[z]);
-}
-
 double KE(state r)
 {
-    return 0.5 * totalMass(r.m) * square(velocity(r));
+    return 0.5 * TotalMass(r.m) * square(Velocity(r));
 }
 
 double PE(state r)
 {
-    return (G * Me * totalMass(r.m))/position(r) - (G * Me * totalMass(r.m))/Re;
+    return (G * Me * TotalMass(r.m))/Position(r) - (G * Me * TotalMass(r.m))/Re;
 }
 
-double totalMass(mass m)
+double TotalMass(mass m)
 {
     return m.fuel + m.structure;
     //return 10.0;

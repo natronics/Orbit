@@ -1,3 +1,10 @@
+#include <math.h>
+#include <stdio.h>
+#include <time.h>
+
+double Velocity(state r);
+double Position(state r);
+double Acceleration(state r);
 double altitude(state r);
 double latitude(state r);
 double longitude(state r);
@@ -8,8 +15,6 @@ vec cartesian(double rho, double theta, double phi);
 double downrange(state r);
 double radians(double degrees);
 double degrees(double radians);
-TimeHMS MjdToUtc(double JD);
-TimeHMS MjdToCivilTime(double JD, int offset);
-double JdToMjd(double jd);
+time_t JdToUnixTime(double JD);
 double SecondsToDecDay(double seconds);
 double DecDayToSeconds(double decDay);
