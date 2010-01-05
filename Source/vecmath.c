@@ -2,12 +2,12 @@
 #include "structs.h"
 #include "vecmath.h"
 
-vec unitVec(double *vector)
+vec UnitVec(vec v)
 {
     double magnitude;
     vec unitVector;
     
-    magnitude = quad(vector[x], vector[y], vector[z]);
+    magnitude = Norm(v);
     
     if (magnitude == 0)
     {
@@ -16,19 +16,41 @@ vec unitVec(double *vector)
         unitVector.k = 0.0;
         return unitVector;
     }
-    unitVector.i = vector[x] / magnitude;
-    unitVector.j = vector[y] / magnitude;
-    unitVector.k = vector[z] / magnitude;
+    unitVector.i = v.i / magnitude;
+    unitVector.j = v.j / magnitude;
+    unitVector.k = v.k / magnitude;
     
     return unitVector;
 }
 
-double square(double val)
+double Square(double val)
 {
     return val*val;
 }
 
-double quad(double X, double Y, double Z)
+double Norm(vec v)
 {
-    return sqrt(square(X) + square(Y) + square(Z));
+    return sqrt(Square(v.i) + Square(v.j) + Square(v.k));
+}
+
+double DotProd(vec a, vec b)
+{
+    double X, Y, Z;
+    
+    X = a.i * b.i;
+    Y = a.j * b.j;
+    Z = a.k * b.k;
+    
+    return X + Y + Z;
+}
+
+double AngleVec(vec a, vec b)
+{
+    double A, B;
+    double AdotB = DotProd(a, b);
+    double angle;
+    
+    angle = acos( (AdotB) / (A*B) );
+    
+    return angle;
 }

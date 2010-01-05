@@ -31,8 +31,9 @@ vec force_Gravity(state r)
     vec g, e;
     double gravity;
     
-    gravity = G * ((Me + TotalMass(r.m))/square(Position(r)));
-    e = unitVec(r.s);
+    //gravity = G * ((Me + TotalMass(r.m))/Square(Position(r)));
+    gravity = -g_0 * TotalMass(r.m);
+    e = UnitVec(r.s);
 
     g.i = gravity * e.i;
     g.j = gravity * e.j;
@@ -78,10 +79,12 @@ vec Force_Thrust(state r, double t)
     double phi;
     double rate = radians(40.0) / 100.0;
 
+    
     if (r.mode == BURNING)
     {
         //phi = rate * t + phi_init;
-        phi = radians(6.0);
+        //phi = radians(6.0);
+        phi = 0.0;
         thrust =  g_0 * I_sp() * mdot();
         
         Ft_enu.i = thrust * sin(phi);
@@ -159,7 +162,7 @@ double zTemperature(double h)
 
 double KE(state r)
 {
-    return 0.5 * TotalMass(r.m) * square(Velocity(r));
+    return 0.5 * TotalMass(r.m) * Square(Velocity(r));
 }
 
 double PE(state r)

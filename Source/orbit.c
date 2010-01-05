@@ -133,7 +133,7 @@ void run()
     lastRocket = InitialRocket();
     
     lastTime = 0;
-    for (Met = 0; Met < 10000; Met += h)
+    for (Met = 0; Met < 100; Met += h)
     {
         Jd += SecondsToDecDay(h);
         
@@ -263,11 +263,7 @@ void readConfigFile(char *filename)
             double length = (double) config_setting_get_float(leng);
             double outerDiameter = (double) config_setting_get_float(OD);
             
-            vec cart = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
-            
-            initRocket.s[x] = cart.i;
-            initRocket.s[y] = cart.j;
-            initRocket.s[z] = cart.k;
+            initRocket.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
             
             U_enu.i = U_x;
             U_enu.j = U_y;
@@ -275,17 +271,13 @@ void readConfigFile(char *filename)
             
             U_ecef = ecefFromEnu(U_enu, initRocket);
             
-            initRocket.U[x] = U_ecef.i;
-            initRocket.U[y] = U_ecef.j;
-            initRocket.U[z] = U_ecef.k;
+            initRocket.U = U_ecef;
 
             initRocket.m.structure = emptyMass;
             initRocket.m.fuel = fuelMass;
 
             vec accel = DoPhysics(initRocket, 0);
-            initRocket.a[x] = accel.i;
-            initRocket.a[y] = accel.j;
-            initRocket.a[z] = accel.k;
+            initRocket.a = accel;
             
             initRocket.mode = BURNING;
         }

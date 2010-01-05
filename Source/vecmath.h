@@ -1,6 +1,7 @@
 #define PI 3.14159265358979
 
-double square(double val);
-double quad(double X, double Y, double Z);
-vec unitVec(double *vector);
+vec UnitVec(vec v);
+double Square(double val);
+double Norm(vec v);
+double DotProd(vec a, vec b);
 

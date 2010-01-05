@@ -6,17 +6,17 @@
 
 double Position(state r)
 {
-    return quad(r.s[x], r.s[y], r.s[z]);
+    return Norm(r.s);
 }
 
 double Velocity(state r)
 {
-    return quad(r.U[x], r.U[y], r.U[z]);
+    return Norm(r.U);
 }
 
 double Acceleration(state r)
 {
-    return quad(r.a[x], r.a[y], r.a[z]);
+    return Norm(r.a);
 }
 
 double altitude(state r)
@@ -26,7 +26,7 @@ double altitude(state r)
 
 double latitude(state r)
 {
-    double a = r.s[z]/Position(r);
+    double a = r.s.k/Position(r);
     return PI/2.0 - acos(a);
 }
 
@@ -34,10 +34,10 @@ double longitude(state r)
 {
     double S, a, lon;
     
-    S = sqrt(square(r.s[x]) + square(r.s[y]));
-    a = r.s[y]/S;
+    S = sqrt(Square(r.s.i) + Square(r.s.j));
+    a = r.s.j/S;
     
-    if (r.s[x] >= 0.0)
+    if (r.s.i >= 0.0)
         lon = asin(a);
     else
         lon = PI - asin(a);
@@ -151,12 +151,17 @@ double degrees(double radians)
     return degree;
 }
 
-time_t JdToUnixTime(double JD)
+double AngleOfAttack(state r)
+{
+   return 0.0;
+}
+
+time_t JdToUnixTime(double Jd)
 {
     double unixTime;
     time_t unixT;
     
-    unixTime = (JD - 2440587.5) * 86400;
+    unixTime = (Jd - 2440587.5) * 86400;
     unixT = (time_t) unixTime;
     return unixT;
 }

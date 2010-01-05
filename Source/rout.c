@@ -51,15 +51,15 @@ void PrintLine(FILE *outfile, double Mjd, double t, state r)
     fprintf(outfile, format
         ,   t                       //1     Time MET
         ,   Mjd                     //2     Time MJD
-        ,   r.s[x]                  //3     X
-        ,   r.s[y]                  //4     Y
-        ,   r.s[z]                  //5     Z
-        ,   r.U[x]                  //6     U_x
-        ,   r.U[y]                  //7     U_y
-        ,   r.U[z]                  //8     U_z
-        ,   r.a[x]                  //9     a_x
-        ,   r.a[y]                  //10    a_y
-        ,   r.a[z]                  //11    a_z
+        ,   r.s.i                   //3     X
+        ,   r.s.j                   //4     Y
+        ,   r.s.k                   //5     Z
+        ,   r.U.i                   //6     U_x
+        ,   r.U.j                   //7     U_y
+        ,   r.U.k                   //8     U_z
+        ,   r.a.i                   //9     a_x
+        ,   r.a.j                   //10    a_y
+        ,   r.a.k                   //11    a_z
         ,   TotalMass(r.m)          //12    mass
         ,   KE(r)                   //13    KE
         ,   PE(r)                   //14    PE
@@ -75,7 +75,7 @@ void PrintHeader(FILE *outfile)
     char header[512] = "#";
     
     strcat(header, "Time(s)");                  //1
-    strcat(header, "\tModified JD     ");       //2
+    strcat(header, "\tJulian Date     ");       //2
     strcat(header, "\tX(m)            ");       //3
     strcat(header, "\tY(m)            ");       //4
     strcat(header, "\tZ(m)            ");       //5
@@ -98,7 +98,7 @@ void PrintHeader(FILE *outfile)
 }
 
 void PrintForceLine(FILE *outfile, double jd, double t, state r)
-{ 
+{
     char format[512] = "";
     char exp[8] = "%0.10e\t";
     vec thrust = Force_Thrust(r,t);
@@ -109,14 +109,14 @@ void PrintForceLine(FILE *outfile, double jd, double t, state r)
     strcat(format, exp);            //4     Thrust_y
     strcat(format, exp);            //5     Thrust_z
     strcat(format, "\n");
-  
+
     fprintf(outfile, format
         ,   t                       //1     Time MET
         ,   jd                      //2     Time JD
         ,   thrust.i                //3     Thrust_x
         ,   thrust.j                //4     Thrust_y
         ,   thrust.k);              //5     Thrust_z
-     
+
 }
 
 void PrintResult(state burnout, state apogee, double t_bo, double t_apogee)
@@ -387,10 +387,17 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
     fprintf(htmlOut, "      <td>%0.2f</td>\n", downrange(apogee) / 1000.0);
     fprintf(htmlOut, "    </tr>\n");
     fprintf(htmlOut, "  </table>\n");
-    //printHtmlImage(htmlOut, "ascent.png");
     
-    printHtmlImage(htmlOut, "worldmap.png");
+    printHtmlHeader(htmlOut, "Altitue Over Time");
+    printHtmlImage(htmlOut, "ascent-alt.png");
+    
+    printHtmlHeader(htmlOut, "Launch Map");
     printHtmlImage(htmlOut, "launchmap.png");
+    
+    printHtmlHeader(htmlOut, "World Map");
+    printHtmlImage(htmlOut, "worldmap.png");
+    
+    
     
     printHtmlFileFooter(htmlOut);
     
@@ -433,7 +440,6 @@ void printHtmlFileFooter(FILE *out)
 void MakePltFiles()
 {
     makeLaunchMapPlt();
-    //makeAscentPlt();
 }
 
 void makeLaunchMapPlt()
@@ -467,3 +473,4 @@ void makeLaunchMapPlt()
     
     fclose(pltOut);
 }
+
