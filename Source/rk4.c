@@ -9,102 +9,120 @@
 #define DOF 3
 
 state updateState(state r, int previousStep, double point);
-void stateToRk4(state r, double t);
+void initilize(state r);
+void evalSecondDeriv(state r, double t);
+void evalFirstDeriv(state r, double t);
+state setFirstDeriv(state r, double *firstDerivative);
+state setFunction(state r, double *function);
 
-double secondOrderDE[4][DOF];    //k, p, u
-double firstOrderDE[4][DOF];     //l, q, v
-double secondOrder[DOF];        //Vel
-double firstOrder[DOF];         //Accel
-double vel_n[DOF];
-double pos_n[DOF];
-double vel_n1[DOF];
-double pos_n1[DOF];
+double function_n[DOF];
+double firstDeriv_n[DOF];
+double function_n1[DOF];
+double firstDeriv_n1[DOF];
+
+double firstDeriv[DOF];
+double secondDeriv[DOF];
+
+double rk4firstDeriv[4][DOF];
+double rk4secondDeriv[4][DOF];
 
 /*!
  * A generic fourth-order Runge-Kutta numerical integration engine for second 
- * order differential equations.You are not expected to understand this.
+ * order differential equations.
+ * 
+ * Second Derivative (eg, acceleration) = secondDeriv
+ * First Derivative (eg, velocity)      = firstDeriv
+ * Function (eg, position               = function
+ *
+ * initial values   = _n
+ * next guess       = _n1
+ *
+ * One Eulers step:
+ * secondDeriv = ::get from program::
+ * firstDeriv_n1 = firstDeriv_n + secondDeriv*timestep
+ * function_n1 = function_n + firstDeriv*timestep
+ *
+ * rk4firstDeriv = Guesses for the first Derivitive
+ * rk4secondDeriv = Guesses for the second Derivitve
+ *
+ * You are not expected to understand this.
  */
 state rk4(state r, float h, double t)
 {
     int i;
     double average;
     
-    // Define Degrees of Freedom
-    vel_n[0] = r.U.i;
-    vel_n[1] = r.U.j;
-    vel_n[2] = r.U.k;
-    pos_n[0] = r.s.i;
-    pos_n[1] = r.s.j;
-    pos_n[2] = r.s.k;
+    // Prime the pump
+    initilize(r);
+    
     
     /* First Steps */
-    stateToRk4(r, t);
+    evalSecondDeriv(r, t);                  //Begining
     
     for (i = 0; i < DOF; i++)
     {
-        secondOrderDE[0][i] = secondOrder[i];
-        firstOrderDE[0][i] = firstOrder[i];
-    }
-    
+        rk4firstDeriv[0][i] = firstDeriv_n[i];      //Using initial values
+        rk4secondDeriv[0][i] = secondDeriv[i];
+    }    
     
     /* Second Steps */
     r = updateState(r, 0, 0.5*h);           //Midpoint
-    stateToRk4(r, t + 0.5*h);               //Midpoint
+    evalFirstDeriv(r, t + 0.5*h);           //Midpoint
+    evalSecondDeriv(r, t + 0.5*h);          //Midpoint
 
     for (i = 0; i < DOF; i++)
     {
-        secondOrderDE[1][i] = secondOrder[i];
-        firstOrderDE[1][i] = firstOrder[i];
+        rk4firstDeriv[1][i] = firstDeriv[i];
+        rk4secondDeriv[1][i] = secondDeriv[i];
     }
 
 
     /* Third Steps */
     r = updateState(r, 1, 0.5*h);           //Midpoint
-    stateToRk4(r, t + 0.5*h);               //Midpoint
-    
+    evalFirstDeriv(r, t + 0.5*h);           //Midpoint
+    evalSecondDeriv(r, t + 0.5*h);          //Midpoint
+
     for (i = 0; i < DOF; i++)
     {
-        secondOrderDE[2][i] = secondOrder[i];
-        firstOrderDE[2][i] = firstOrder[i];
+        rk4firstDeriv[2][i] = firstDeriv[i];
+        rk4secondDeriv[2][i] = secondDeriv[i];
     }
 
 
     /* Fourth Steps */
     r = updateState(r, 2, h);               //Endpoint
-    stateToRk4(r, t + h);                   //Endpoint
+    evalFirstDeriv(r, t + h);               //Endpoint
+    evalSecondDeriv(r, t + h);              //Endpoint
     
     for (i = 0; i < DOF; i++)
     {
-        secondOrderDE[3][i] = secondOrder[i];
-        firstOrderDE[3][i] = firstOrder[i];
+        rk4firstDeriv[3][i] = firstDeriv[i];
+        rk4secondDeriv[3][i] = secondDeriv[i];
     }
+    
     
     /* Add it up */
     for (i = 0; i < DOF; i++)
     {
-        average = firstOrderDE[0][i] 
-                + 2*firstOrderDE[1][i] 
-                + 2*firstOrderDE[2][i]
-                + firstOrderDE[3][i];
+        average = rk4firstDeriv[0][i] 
+                + 2*rk4firstDeriv[1][i] 
+                + 2*rk4firstDeriv[2][i]
+                + rk4firstDeriv[3][i];
                 
-        vel_n1[i] = vel_n[i] + (h*average)/6.0;
+        function_n1[i] = function_n[i] + (h*average)/6.0;
         
-        average = secondOrderDE[0][i] 
-                + 2*secondOrderDE[1][i] 
-                + 2*secondOrderDE[2][i]
-                + secondOrderDE[3][i];
-        pos_n1[i] = pos_n[i] + (h*average)/6.0;
+        
+        average = rk4secondDeriv[0][i] 
+                + 2*rk4secondDeriv[1][i] 
+                + 2*rk4secondDeriv[2][i]
+                + rk4secondDeriv[3][i];
+                
+        firstDeriv_n1[i] = firstDeriv_n[i] + (h*average)/6.0;
     }
     
     /* Update State */
-    
-    // Define Degrees of Freedom
-    r.U.i = vel_n1[0];
-    r.U.j = vel_n1[1];
-    r.U.k = vel_n1[2];
-    r.s.i = pos_n1[0];
-    r.s.j = pos_n1[1];
-    r.s.k = pos_n1[2];
+    r = setFirstDeriv(r, firstDeriv_n1);
+    r = setFunction(r, function_n1);
     r.a = DoPhysics(r, t + h);
     
     r.m.fuel = updateFuelMass(r, t);
@@ -117,45 +135,73 @@ state rk4(state r, float h, double t)
     return r;
 }
 
-state updateState(state r, int previousStep, double point)
+/*******************************************************************************
+ * BEGIN Setting up Degree of Freedom mapping
+ ******************************************************************************/
+
+void initilize(state r)
 {
-    double vel[DOF], pos[DOF];
-    int i;
+    function_n[0] = r.s.i;
+    function_n[1] = r.s.j;
+    function_n[2] = r.s.k;
     
-    // Define Degrees of Freedom
-    vel[0] = r.U.i;
-    vel[1] = r.U.j;
-    vel[2] = r.U.k;
-    pos[0] = r.s.i;
-    pos[1] = r.s.j;
-    pos[2] = r.s.k;
-    
-    for (i = 0; i < DOF; i++)
-    {
-        vel[i] = vel_n[i] + point*firstOrderDE[previousStep][i];   //Eulers
-        pos[i] = pos_n[i] + point*secondOrderDE[previousStep][i];  //Eulers
-    }
-    
-    r.U.i = vel[0];
-    r.U.j = vel[1];
-    r.U.k = vel[2];
-    r.s.i = pos[0];
-    r.s.j = pos[1];
-    r.s.k = pos[2];
+    firstDeriv_n[0] = r.U.i;
+    firstDeriv_n[1] = r.U.j;
+    firstDeriv_n[2] = r.U.k;
+}
+
+state setFirstDeriv(state r, double *firstDerivative)
+{
+    r.U.i = firstDerivative[0];
+    r.U.j = firstDerivative[1];
+    r.U.k = firstDerivative[2];
     
     return r;
 }
 
-void stateToRk4(state r, double t)
+state setFunction(state r, double *function)
+{
+    r.s.i = function[0];
+    r.s.j = function[1];
+    r.s.k = function[2];
+    
+    return r;
+}
+
+void evalSecondDeriv(state r, double t)
 {
     vec accel = DoPhysics(r, t);
+    secondDeriv[0] = accel.i;
+    secondDeriv[1] = accel.j;
+    secondDeriv[2] = accel.k;
+}
 
-    // Define Degrees of Freedom
-    secondOrder[0] = r.U.i;
-    secondOrder[1] = r.U.j;
-    secondOrder[2] = r.U.k;
-    firstOrder[0] = accel.i;
-    firstOrder[1] = accel.j;
-    firstOrder[2] = accel.k;
+void evalFirstDeriv(state r, double t)
+{
+    firstDeriv[0] = r.U.i;
+    firstDeriv[1] = r.U.j;
+    firstDeriv[2] = r.U.k;
+}
+
+/*******************************************************************************
+ * END Setting up Degree of Freedom mapping
+ ******************************************************************************/
+
+state updateState(state r, int previousStep, double point)
+{
+    double firstDerivative[DOF];
+    double function[DOF];
+    int i;
+    
+    for (i = 0; i < DOF; i++)
+    {
+        firstDerivative[i] = firstDeriv_n[i] + point*rk4secondDeriv[previousStep][i];
+        function[i] = function_n[i] + point*rk4firstDeriv[previousStep][i];
+    }
+    
+    r = setFirstDeriv(r, firstDerivative);
+    r = setFunction(r, function);
+    
+    return r;
 }
 
