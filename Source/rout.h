@@ -44,5 +44,5 @@ void PrintKmlHeader(FILE *outfile);
 void PrintKmlFooter(FILE *outfile);
 void PrintKmlLine(FILE *outfile, state r);
 void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, double runTime);
-void MakePltFiles();
+void MakePltFiles(state apogeeRocket);
 

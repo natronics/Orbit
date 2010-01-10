@@ -19,6 +19,7 @@ void printHtmlHeader(FILE *out, char *header);
 void printHtmlFileFooter(FILE *out);
 void printHtmlImage(FILE *out, char *img);
 void makeLaunchMapPlt();
+void makeAltDownPlt(state apogee);
 
 void PrintLine(FILE *outfile, double Mjd, double t, state r)
 {
@@ -65,8 +66,8 @@ void PrintLine(FILE *outfile, double Mjd, double t, state r)
         ,   PE(r)                   //14    PE
         ,   lat                     //15    Lat
         ,   lon                     //16    Lon
-        ,   altitude(r)             //17    Alt
-        ,   downrange(r));          //18    Downrange
+        ,   Altitude(r)             //17    Alt
+        ,   Downrange(r));          //18    Downrange
         
 }
 
@@ -166,14 +167,14 @@ void PrintResult(state burnout, state apogee, double t_bo, double t_apogee)
     printf("%s%16.2f %s\n", "\t        Burn Time: ", burnTime, "s");
     printf("%s\t   %s %s\n","\t          Burnout: ", burnoutTimeStringUtc, "[UTC]");
     printf("%s%16.2f %s\n", "\t Burnout Velocity: ", Velocity(burnout), "m/s");
-    printf("%s%16.2f %s\n", "\t Burnout Altitude: ", altitude(burnout) / 1000.0, "km");
-    printf("%s%16.2f %s\n", "\tBurnout Downrange: ", downrange(burnout) / 1000.0, "km");
+    printf("%s%16.2f %s\n", "\t Burnout Altitude: ", Altitude(burnout) / 1000.0, "km");
+    printf("%s%16.2f %s\n", "\tBurnout Downrange: ", Downrange(burnout) / 1000.0, "km");
     printf("\n");
     printf("%s%16.2f %s\n", "\t       Coast Time: ", coastTime, "s");
     printf("%s\t   %s %s\n","\t           Apogee: ", apogeeTimeStringUtc, "[UTC]");
     printf("%s%16.2f %s\n", "\t  Apogee Velocity: ", Velocity(apogee), "m/s");
-    printf("%s%16.2f %s\n", "\t  Apogee Altitude: ", altitude(apogee) / 1000.0, "km");
-    printf("%s%16.2f %s\n", "\t Apogee Downrange: ", downrange(apogee) / 1000.0, "km");
+    printf("%s%16.2f %s\n", "\t  Apogee Altitude: ", Altitude(apogee) / 1000.0, "km");
+    printf("%s%16.2f %s\n", "\t Apogee Downrange: ", Downrange(apogee) / 1000.0, "km");
 }
 
 void PrintKmlHeader(FILE *outfile)
@@ -219,7 +220,7 @@ void PrintKmlLine(FILE *outfile, state r)
 {
     double lat = degrees(latitude(r));
     double lon = degrees(longitude(r));
-    fprintf(outfile, "          %f,%f,%#.1f\n", lon, lat, altitude(r));
+    fprintf(outfile, "          %f,%f,%#.1f\n", lon, lat, Altitude(r));
 }
 
 void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, double runTime)
@@ -361,8 +362,8 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
                             , burnoutTimeStringUtc);
     fprintf(htmlOut, "      <td>%0.2f</td>\n", burnTime);
     fprintf(htmlOut, "      <td>%0.2f</td>\n", Velocity(burnout));
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", altitude(burnout) / 1000.0);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", downrange(burnout) / 1000.0);
+    fprintf(htmlOut, "      <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
+    fprintf(htmlOut, "      <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
     fprintf(htmlOut, "    </tr>\n");
     fprintf(htmlOut, "  </table>\n");
     
@@ -383,13 +384,14 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
                             , apogeeTimeStringUtc);
     fprintf(htmlOut, "      <td>%0.2f</td>\n", coastTime);
     fprintf(htmlOut, "      <td>%0.2f</td>\n", Velocity(apogee));
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", altitude(apogee) / 1000.0);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", downrange(apogee) / 1000.0);
+    fprintf(htmlOut, "      <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
+    fprintf(htmlOut, "      <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
     fprintf(htmlOut, "    </tr>\n");
     fprintf(htmlOut, "  </table>\n");
     
-    printHtmlHeader(htmlOut, "Altitue Over Time");
+    printHtmlHeader(htmlOut, "Altitue");
     printHtmlImage(htmlOut, "ascent-alt.png");
+    printHtmlImage(htmlOut, "ascent-alt-down.png");
     
     printHtmlHeader(htmlOut, "Launch Map");
     printHtmlImage(htmlOut, "launchmap.png");
@@ -437,9 +439,10 @@ void printHtmlFileFooter(FILE *out)
     fprintf(out, "</html>\n");
 }
 
-void MakePltFiles()
+void MakePltFiles(state apogeeRocket)
 {
     makeLaunchMapPlt();
+    makeAltDownPlt(apogeeRocket);
 }
 
 void makeLaunchMapPlt()
@@ -452,10 +455,10 @@ void makeLaunchMapPlt()
     latLaunch = degrees(latitude(initRocket));
     lonLaunch = degrees(longitude(initRocket));
     
-    lat0 = latLaunch - 5.0;
-    lat1 = latLaunch + 5.0;
-    lon0 = lonLaunch - 5.0;
-    lon1 = lonLaunch + 5.0;
+    lat0 = latLaunch - 7.0;
+    lat1 = latLaunch + 7.0;
+    lon0 = lonLaunch - 7.0;
+    lon1 = lonLaunch + 7.0;
     
     pltOut = fopen("Output/Gnuplot/tmp/launchmap.plt", "w");
     
@@ -473,4 +476,39 @@ void makeLaunchMapPlt()
     
     fclose(pltOut);
 }
+
+void makeAltDownPlt(state apogee)
+{
+    FILE *pltOut = NULL;
+    double dr = Downrange(apogee);
+    double alt = Altitude(apogee);
+    
+    double xrange, yrange;
+    
+    if (dr > alt)
+    {
+        xrange = dr / 1000.0;
+        yrange = dr / 1000.0;
+    }
+    else
+    {
+        xrange = alt / 1000.0;
+        yrange = alt / 1000.0;
+    }
+    
+    pltOut = fopen("Output/Gnuplot/tmp/ascent-alt-down.plt", "w");
+    
+    if (pltOut == NULL)
+        return;
+    
+    fprintf(pltOut, "#!/usr/bin/gnuplot -persist\n\n");
+    fprintf(pltOut, "reset\n\n");
+    fprintf(pltOut, "set xrange[0:%0.1f]\n", xrange + 1);
+    fprintf(pltOut, "set yrange[0:%0.1f]\n\n", yrange + 1);
+    fprintf(pltOut, "load \"./Output/Gnuplot/ascent-alt-down_base.plt\"\n");
+    fprintf(pltOut, "#    EOF");
+
+    fclose(pltOut);
+}
+
 

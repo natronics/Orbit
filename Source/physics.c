@@ -10,7 +10,7 @@ vec force_Gravity(state r);
 double rho(double h);
 double zTemperature(double h);
 
-vec DoPhysics(state r, double t)
+vec LinearAcceleration(state r, double t)
 {
     vec g, d, th, physics;
     double mass = TotalMass(r.m);
@@ -26,13 +26,23 @@ vec DoPhysics(state r, double t)
     return physics;
 }
 
+vec AngularAcceleration(state r, double t)
+{
+    vec alpha;
+    
+    alpha.i = 0;
+    alpha.j = 0;
+    alpha.k = 0;
+    
+    return alpha;
+}
+
 vec force_Gravity(state r)
 {
     vec g, e;
     double gravity;
     
-    //gravity = G * ((Me + TotalMass(r.m))/Square(Position(r)));
-    gravity = -g_0 * TotalMass(r.m);
+    gravity = G * ((Me * TotalMass(r.m))/Square(Position(r)));
     e = UnitVec(r.s);
 
     g.i = gravity * e.i;
@@ -75,34 +85,41 @@ vec Force_Thrust(state r, double t)
 {
     vec Ft;
     vec Ft_enu, Ft_ecef;
+    vec velocityHat;
     double thrust;
     double phi;
     double rate = radians(40.0) / 100.0;
 
+    Ft.i = 0.0;
+    Ft.j = 0.0;
+    Ft.k = 0.0;
     
     if (r.mode == BURNING)
     {
         //phi = rate * t + phi_init;
-        //phi = radians(6.0);
-        phi = 0.0;
+        phi = radians(3.0);
+        //phi = 0.0;
         thrust =  g_0 * I_sp() * mdot();
+        
         
         Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
         Ft_enu.k = thrust * cos(phi);
         
-        Ft_ecef = ecefFromEnu(Ft_enu, r);
+        Ft_ecef = EnuToEcef(Ft_enu, r);
+        Ft = Ft_ecef;
         
-        Ft.i = Ft_ecef.i;
-        Ft.j = Ft_ecef.j;
-        Ft.k = Ft_ecef.k;
+        
+        if ( Norm(r.U) > 50.0 ) 
+        {
+            velocityHat = UnitVec(r.U);
+            
+            Ft.i = thrust * velocityHat.i;
+            Ft.j = thrust * velocityHat.j;
+            Ft.k = thrust * velocityHat.k;
+        }
     }
-    else
-    {
-        Ft.i = 0.0;
-        Ft.j = 0.0;
-        Ft.k = 0.0;
-    }
+
     return Ft;
 }
 

@@ -19,7 +19,7 @@ double Acceleration(state r)
     return Norm(r.a);
 }
 
-double altitude(state r)
+double Altitude(state r)
 {
     return Position(r) - Re;
 }
@@ -74,13 +74,24 @@ matrix3 enu(state r)
     return m3;
 }
 
-vec ecefFromEnu(vec _enu, state r)
+vec EnuToEcef(vec _enu, state r)
 {
     matrix3 m;
     
     m = enu(r);
      
     return matrixMath(_enu, m);
+}
+
+vec BodyToEcef(vec body, vec rot)
+{
+    vec ecef;
+    
+    ecef.i = 0.0;
+    ecef.j = 0.0;
+    ecef.k = 0.0;
+    
+    return ecef;
 }
 
 vec matrixMath(vec v, matrix3 m)
@@ -115,7 +126,7 @@ vec cartesian(double rho, double theta, double phi)
  * Law of spherical cosines:
  * http://www.movable-type.co.uk/scripts/latlong.html
  */
-double downrange(state r)
+double Downrange(state r)
 {
     double lat2, lon2, a;
     double lat1, lon1;

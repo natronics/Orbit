@@ -32,7 +32,7 @@ set ylabel "Latitude [deg]"
 set xlabel "Longitude [deg]"
 set grid lc rgb "#cccccc"
 
-set terminal png truecolor size 512, 512
+set terminal png truecolor size 1024, 1024
 set out "Output/launchmap.png"
 
 plot "./Output/MapData/world.map" every 5 us 2:1 w lines linestyle 1, \

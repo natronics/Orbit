@@ -123,7 +123,7 @@ state rk4(state r, float h, double t)
     /* Update State */
     r = setFirstDeriv(r, firstDeriv_n1);
     r = setFunction(r, function_n1);
-    r.a = DoPhysics(r, t + h);
+    r.a = LinearAcceleration(r, t + h);
     
     r.m.fuel = updateFuelMass(r, t);
     
@@ -170,7 +170,7 @@ state setFunction(state r, double *function)
 
 void evalSecondDeriv(state r, double t)
 {
-    vec accel = DoPhysics(r, t);
+    vec accel = LinearAcceleration(r, t);
     secondDeriv[0] = accel.i;
     secondDeriv[1] = accel.j;
     secondDeriv[2] = accel.k;

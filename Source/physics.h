@@ -3,7 +3,8 @@
 #define Me 5.9742e24
 #define g_0 9.80665
 
-vec DoPhysics(state r, double t);
+vec LinearAcceleration(state r, double t);
+vec AngularAcceleration(state r, double t);
 vec Force_Drag(state r, double t);
 vec Force_Thrust(state r, double t);
 double TotalMass(mass m);

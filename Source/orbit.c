@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 void run()
 {   
     double lastTime;
-    double Jd, Mjd, Met;
+    double Jd, Met;
     double alt, lastAlt;
     unsigned int mode, lastMode;
     int i;
@@ -120,25 +120,19 @@ void run()
     double elapsed;
 
     start = clock();
-
-    /*
-    The Julian date for CE  2010 May  6 14:15:38.2 UT is
-    JD 2455323.09419
-    */
-
-    Jd = 2455323.09419;
-    beginTime = Jd;
+    
+    Jd = BeginTime();
     
     rocket = InitialRocket();
     lastRocket = InitialRocket();
     
     lastTime = 0;
-    for (Met = 0; Met < 100; Met += h)
+    for (Met = 0; Met < 10000; Met += h)
     {
         Jd += SecondsToDecDay(h);
         
-        alt = altitude(rocket);
-        lastAlt = altitude(lastRocket);
+        alt = Altitude(rocket);
+        lastAlt = Altitude(lastRocket);
         
         mode = rocket.mode;
         lastMode = lastRocket.mode;
@@ -184,7 +178,7 @@ void run()
 
     PrintResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
     PrintHtmlResult(burnoutRocket, apogeeRocket, time_bo, time_apogee, elapsed);
-    MakePltFiles();
+    MakePltFiles(apogeeRocket);
 }
 
 void readConfigFile(char *filename)
@@ -208,6 +202,7 @@ void readConfigFile(char *filename)
         
         config_setting_t *pos           = NULL;
         config_setting_t *vel           = NULL;
+        config_setting_t *jd            = NULL;
         
         config_setting_t *emass         = NULL;
         config_setting_t *fmass         = NULL;
@@ -221,6 +216,7 @@ void readConfigFile(char *filename)
         
         pos         = config_lookup(&cfg, "rocketInit.position");
         vel         = config_lookup(&cfg, "rocketInit.velocity");
+        jd          = config_lookup(&cfg, "rocketInit.juliandate");
             
         emass       = config_lookup(&cfg, "rocketDesc.emptyMass");
         fmass       = config_lookup(&cfg, "rocketDesc.fuelMass");
@@ -232,7 +228,7 @@ void readConfigFile(char *filename)
 	    /* Make sure values are found in the config file */
         if ( !tstep || !outFile || !pos || !vel 
             || !emass || !fmass || !isp || !thrust
-            || !leng || !OD ) 
+            || !leng || !OD || !jd) 
         {
             printf("failed config_lookup\n");
             exit(1);
@@ -255,6 +251,9 @@ void readConfigFile(char *filename)
             double U_y = (double) config_setting_get_float_elem(vel, 1);
             double U_z = (double) config_setting_get_float_elem(vel, 2);
             
+            // Time
+            beginTime = (double) config_setting_get_float(jd);
+            
             // Rocket
             double emptyMass = (double) config_setting_get_float(emass);
             double fuelMass = (double) config_setting_get_float(fmass);
@@ -269,14 +268,26 @@ void readConfigFile(char *filename)
             U_enu.j = U_y;
             U_enu.k = U_z;
             
-            U_ecef = ecefFromEnu(U_enu, initRocket);
+            U_ecef = EnuToEcef(U_enu, initRocket);
             
             initRocket.U = U_ecef;
+            
+            initRocket.r.i = 0.0;
+            initRocket.r.j = 0.0;
+            initRocket.r.k = 0.0;
+            
+            initRocket.q.i = 0.0;
+            initRocket.q.j = 0.0;
+            initRocket.q.k = 0.0;
+            
+            initRocket.p.i = 0.0;
+            initRocket.p.j = 0.0;
+            initRocket.p.k = 0.0;
 
             initRocket.m.structure = emptyMass;
             initRocket.m.fuel = fuelMass;
 
-            vec accel = DoPhysics(initRocket, 0);
+            vec accel = LinearAcceleration(initRocket, 0);
             initRocket.a = accel;
             
             initRocket.mode = BURNING;
