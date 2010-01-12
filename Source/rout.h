@@ -9,12 +9,10 @@
 /*!
  * Prints a line of rocekt state to a file
  * \param outfile The file to write to
- * \param Mjd The time in Modified Julian Date
- * \param t The current time in seconds
+ * \param jd The current time in Julian Date
  * \param r The current rocket state to write
- * \param t The current time in seconds
  */
-void PrintLine(FILE *outfile, double Mjd, double t, state r);
+void PrintStateLine(FILE *outfile, double jd, state r);
 
 /*!
  * Prints the header line of an output file
@@ -29,7 +27,7 @@ void PrintHeader(FILE *outfile);
  * \param Jd The time in Julian Date
  * \param rocket The current state
  */
-void PrintForceLine(FILE *outfile, double jd, double t, state r);
+void PrintForceLine(FILE *outfile, double jd, state r);
 
 /*!
  * Prints the results of an entire simulation to the screen.
@@ -39,10 +37,11 @@ void PrintForceLine(FILE *outfile, double jd, double t, state r);
  * \param t_bo The time at burnout.
  * \param t_apogee The time at apogee.
  */
-void PrintResult(state burnout, state apogee, double t_bo, double t_apogee);
+void PrintSimResult();
 void PrintKmlHeader(FILE *outfile);
 void PrintKmlFooter(FILE *outfile);
 void PrintKmlLine(FILE *outfile, state r);
-void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, double runTime);
+void PrintHtmlResult(Rocket_Stage *stages);
 void MakePltFiles(state apogeeRocket);
+void DumpState(state dump);
 

@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 #include "structs.h"
 #include "physics.h"
@@ -18,10 +19,13 @@ void printHtmlFileHeader(FILE *out);
 void printHtmlHeader(FILE *out, char *header);
 void printHtmlFileFooter(FILE *out);
 void printHtmlImage(FILE *out, char *img);
+void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages);
+void printHtmlDetailDiv(FILE *out, Rocket_Stage stage);
 void makeLaunchMapPlt();
 void makeAltDownPlt(state apogee);
+void makeOverviewPlt(state apogee);
 
-void PrintLine(FILE *outfile, double Mjd, double t, state r)
+void PrintStateLine(FILE *outfile, double jd, state r)
 {
     char format[512] = "";
     char exp[8] = "%0.10e\t";
@@ -50,8 +54,8 @@ void PrintLine(FILE *outfile, double Mjd, double t, state r)
     
     
     fprintf(outfile, format
-        ,   t                       //1     Time MET
-        ,   Mjd                     //2     Time MJD
+        ,   r.met                   //1     Time MET
+        ,   jd                      //2     Time JD
         ,   r.s.i                   //3     X
         ,   r.s.j                   //4     Y
         ,   r.s.k                   //5     Z
@@ -61,9 +65,9 @@ void PrintLine(FILE *outfile, double Mjd, double t, state r)
         ,   r.a.i                   //9     a_x
         ,   r.a.j                   //10    a_y
         ,   r.a.k                   //11    a_z
-        ,   TotalMass(r.m)          //12    mass
-        ,   KE(r)                   //13    KE
-        ,   PE(r)                   //14    PE
+        ,   RocketMass(r, r.met)    //12    mass
+        ,   KE(r, r.met)            //13    KE
+        ,   PE(r, r.met)            //14    PE
         ,   lat                     //15    Lat
         ,   lon                     //16    Lon
         ,   Altitude(r)             //17    Alt
@@ -98,11 +102,11 @@ void PrintHeader(FILE *outfile)
     fprintf(outfile, "%s", header);
 }
 
-void PrintForceLine(FILE *outfile, double jd, double t, state r)
+void PrintForceLine(FILE *outfile, double jd, state r)
 {
     char format[512] = "";
     char exp[8] = "%0.10e\t";
-    vec thrust = Force_Thrust(r,t);
+    vec thrust = Force_Thrust(r, r.met);
 
     strcat(format, "%0.4f  \t");    //1     Time MET
     strcat(format, "%0.8f  \t");    //2     Time JD
@@ -112,7 +116,7 @@ void PrintForceLine(FILE *outfile, double jd, double t, state r)
     strcat(format, "\n");
 
     fprintf(outfile, format
-        ,   t                       //1     Time MET
+        ,   r.met                   //1     Time MET
         ,   jd                      //2     Time JD
         ,   thrust.i                //3     Thrust_x
         ,   thrust.j                //4     Thrust_y
@@ -120,61 +124,17 @@ void PrintForceLine(FILE *outfile, double jd, double t, state r)
 
 }
 
-void PrintResult(state burnout, state apogee, double t_bo, double t_apogee)
+void PrintSimResult(Rocket_Stage stage)
 {
-    double burnTime = DecDayToSeconds(t_bo - BeginTime());
-    double coastTime = DecDayToSeconds(t_apogee - t_bo);
-    
-    char launchTimeStringUtc[256];
-    char launchTimeStringLoc[256];
-    char burnoutTimeStringUtc[256];
-    char apogeeTimeStringUtc[256];
-    char localTimeZone[16];
-    time_t launchTime;
-    time_t burnoutTime;
-    time_t apogeeTime;
-    struct tm *launchTimeUtc;
-    struct tm *launchTimeLoc;
-    struct tm *burnoutTimeUtc;
-    struct tm *apogeeTimeUtc;
-    
-    /* Get the times in unix time */
-    launchTime      = JdToUnixTime(BeginTime());
-    burnoutTime     = JdToUnixTime(t_bo);
-    apogeeTime      = JdToUnixTime(t_apogee);
-
-    /* Convert it to local or utc time representation */
-    launchTimeUtc   = gmtime(&launchTime);
-    strftime(launchTimeStringUtc, 256, "%m/%d/%Y %H:%M:%S", launchTimeUtc);
-    
-    launchTimeLoc   = localtime(&launchTime);
-    strftime(launchTimeStringLoc, 256, "%m/%d/%Y %H:%M:%S", launchTimeLoc);
-    
-    burnoutTimeUtc  = gmtime(&burnoutTime);
-    strftime(burnoutTimeStringUtc, 256, "%H:%M:%S", burnoutTimeUtc);
-    
-    apogeeTimeUtc   = gmtime(&apogeeTime);
-    strftime(apogeeTimeStringUtc, 256, "%H:%M:%S", apogeeTimeUtc);
-        
-    launchTimeLoc      = localtime(&launchTime);
-    strftime(localTimeZone, 16, "%Z", launchTimeLoc);
-
-    
-    printf("%s\t%s %s\n", "\t     Launch Time: ", launchTimeStringUtc, "[UTC]");
-    printf("%s\t%s [%s]\n", "\t                   ", launchTimeStringLoc, localTimeZone);
-    printf("\n");
+    state burnout = stage.burnoutState;
+    double burnTime = burnout.met - stage.initialState.met;
     
     printf("%s%16.2f %s\n", "\t        Burn Time: ", burnTime, "s");
-    printf("%s\t   %s %s\n","\t          Burnout: ", burnoutTimeStringUtc, "[UTC]");
+    //printf("%s\t   %s %s\n","\t          Burnout: ", burnoutTimeStringUtc, "[UTC]");
     printf("%s%16.2f %s\n", "\t Burnout Velocity: ", Velocity(burnout), "m/s");
     printf("%s%16.2f %s\n", "\t Burnout Altitude: ", Altitude(burnout) / 1000.0, "km");
     printf("%s%16.2f %s\n", "\tBurnout Downrange: ", Downrange(burnout) / 1000.0, "km");
     printf("\n");
-    printf("%s%16.2f %s\n", "\t       Coast Time: ", coastTime, "s");
-    printf("%s\t   %s %s\n","\t           Apogee: ", apogeeTimeStringUtc, "[UTC]");
-    printf("%s%16.2f %s\n", "\t  Apogee Velocity: ", Velocity(apogee), "m/s");
-    printf("%s%16.2f %s\n", "\t  Apogee Altitude: ", Altitude(apogee) / 1000.0, "km");
-    printf("%s%16.2f %s\n", "\t Apogee Downrange: ", Downrange(apogee) / 1000.0, "km");
 }
 
 void PrintKmlHeader(FILE *outfile)
@@ -223,38 +183,29 @@ void PrintKmlLine(FILE *outfile, state r)
     fprintf(outfile, "          %f,%f,%#.1f\n", lon, lat, Altitude(r));
 }
 
-void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, double runTime)
+void PrintHtmlResult(Rocket_Stage *stages)
 {
     FILE *htmlOut = NULL;
-    state initRocket = InitialRocket(); 
-    double lat = degrees(latitude(initRocket));
-    double lon = degrees(longitude(initRocket));
-    double massRatio = TotalMass(initRocket.m) / initRocket.m.structure;
-    double TTWRatio = (g_0 * I_sp() * mdot()) / (TotalMass(initRocket.m) * g_0);
-    double burnTime = DecDayToSeconds(t_bo - BeginTime());
-    double coastTime = DecDayToSeconds(t_apogee - t_bo);
+    state launchState = LaunchState(); 
+    int i;
+    double rocketTotalMass = 0;
+    double rocketTotalFuelMass = 0;
+    double rocketTotalStructureMass = 0;
+    int numOfStages = NumberOfStages();
     
     char runTimeStringLoc[256];
     char launchTimeStringUtc[256];
     char launchTimeStringLoc[256];
-    char burnoutTimeStringUtc[256];
-    char apogeeTimeStringUtc[256];
     char localTimeZone[16];
     time_t curtime;
     time_t launchTime;
-    time_t burnoutTime;
-    time_t apogeeTime;
     struct tm *runTimeLoc;
     struct tm *launchTimeUtc;
     struct tm *launchTimeLoc;
-    struct tm *burnoutTimeUtc;
-    struct tm *apogeeTimeUtc;
     
     /* Get the times in unix time */
     curtime         = time(NULL);
     launchTime      = JdToUnixTime(BeginTime());
-    burnoutTime     = JdToUnixTime(t_bo);
-    apogeeTime      = JdToUnixTime(t_apogee);
 
     /* Convert it to local or utc time representation */
     runTimeLoc      = localtime(&curtime);
@@ -266,32 +217,33 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
     launchTimeLoc   = localtime(&launchTime);
     strftime(launchTimeStringLoc, 256, "%m/%d/%Y %H:%M:%S", launchTimeLoc);
     
-    burnoutTimeUtc  = gmtime(&burnoutTime);
-    strftime(burnoutTimeStringUtc, 256, "%H:%M:%S", burnoutTimeUtc);
-    
-    apogeeTimeUtc   = gmtime(&apogeeTime);
-    strftime(apogeeTimeStringUtc, 256, "%H:%M:%S", apogeeTimeUtc);
-    
     launchTimeLoc   = localtime(&launchTime);
     strftime(localTimeZone, 16, "%Z", launchTimeLoc);
     
+    /* Open the file to write */
     htmlOut = fopen("Output/result.html", "w");
     
+    // Check if fopen was successfull
     if (htmlOut == NULL)
     {
         return;
     }
     
+    /* Print the file header */
     printHtmlFileHeader(htmlOut);
     
-    printHtmlHeader(htmlOut, "Run Details");
-    fprintf(htmlOut, "  <p>Simulation run on %s and took %0.2f seconds</p>\n"
-                ,   runTimeStringLoc
-                ,   runTime);   
+    /* Print the results */
     
-    printHtmlHeader(htmlOut, "Liftoff Configuration");
+    // Start with when it was run
+    printHtmlHeader(htmlOut, "Run Details");
+    fprintf(htmlOut, "  <p>Simulation run on %s and took %0.4f seconds</p>\n"
+                ,   runTimeStringLoc
+                ,   RunTime());   
+    
+    // Liftoff Mass Configuration Table
+    printHtmlHeader(htmlOut, "Rocket Configuration");
 
-    /* Liftoff Mass Configuration Table */
+
     fprintf(htmlOut, "  <table class=\"data_table\" >\n");
     fprintf(htmlOut, "    <thead>\n");
     fprintf(htmlOut, "      <tr>\n");
@@ -305,28 +257,53 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
     fprintf(htmlOut, "      <tr>\n");
     fprintf(htmlOut, "    </thead>\n");
     fprintf(htmlOut, "    <tbody>\n");
-    fprintf(htmlOut, "      <tr>\n");
-    fprintf(htmlOut, "        <td>1</td>\n");
-    fprintf(htmlOut, "        <td>%0.0f</td>\n", I_sp());
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", initRocket.m.fuel);
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", initRocket.m.structure);
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", TotalMass(initRocket.m));
-    fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
-    fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
-    fprintf(htmlOut, "      </tr>\n");
+    
+    // Loop through stages
+    for (i = 0; i < numOfStages; i++)
+    {
+        Rocket_Stage stage = stages[i];
+        motor stageMotor        = stage.initialState.m;
+        double isp              = stageMotor.isp;
+        double fuelMass         = stageMotor.fuelMass;
+        double emptyMass        = stage.description.emptyMass;
+        double stageTotalMass   = fuelMass + emptyMass;
+        double massRatio        = stageTotalMass / emptyMass;
+        double TTWRatio         = stageMotor.thrust / (g_0 * stageTotalMass);
+        
+        fprintf(htmlOut, "      <tr>\n");
+        fprintf(htmlOut, "        <td>%d</td>\n", i + 1);
+        fprintf(htmlOut, "        <td>%0.0f</td>\n", isp);
+        fprintf(htmlOut, "        <td>%0.2f</td>\n", fuelMass);
+        fprintf(htmlOut, "        <td>%0.2f</td>\n", emptyMass);
+        fprintf(htmlOut, "        <td>%0.2f</td>\n", stageTotalMass);
+        fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
+        fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
+        fprintf(htmlOut, "      </tr>\n");
+        
+        // Add up the rocket totals
+        rocketTotalMass += stageTotalMass;
+        rocketTotalFuelMass += fuelMass;
+        rocketTotalStructureMass += emptyMass;
+    }
+    
+    double massRatio = rocketTotalMass / rocketTotalStructureMass;
+    double TTWRatio = stages[0].initialState.m.thrust / (g_0 * rocketTotalMass);
+    
+    
     fprintf(htmlOut, "    </tbody>\n");
     fprintf(htmlOut, "    <tfoot class=\"total\">\n");
     fprintf(htmlOut, "      <tr>\n");
     fprintf(htmlOut, "        <td>Total</td>\n");
     fprintf(htmlOut, "        <td>&mdash;</td>\n");
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", initRocket.m.fuel);
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", initRocket.m.structure);
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", TotalMass(initRocket.m));
+    fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalFuelMass);
+    fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalStructureMass);
+    fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalMass);
     fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
     fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
     fprintf(htmlOut, "      </tr>\n");
     fprintf(htmlOut, "    </tfoot>\n");
     fprintf(htmlOut, "  </table>\n");
+    
     
     /* Liftoff Location Configuration Table */
     fprintf(htmlOut, "  <table class=\"data_table\" >\n");
@@ -334,72 +311,46 @@ void PrintHtmlResult(state burnout, state apogee, double t_bo, double t_apogee, 
     fprintf(htmlOut, "      <th>Launch Time [UTC]</th>\n");
     fprintf(htmlOut, "      <th>Launch Time [%s]</th>\n", localTimeZone);
     fprintf(htmlOut, "      <th>Location</th>\n");
-    fprintf(htmlOut, "      <th>Launch Angle [&deg;]</th>\n");
     fprintf(htmlOut, "    </thead>\n");
     fprintf(htmlOut, "    <tr>\n");
     fprintf(htmlOut, "      <td><span class=\"time\">%s</span></td>\n"
                             , launchTimeStringUtc);
     fprintf(htmlOut, "      <td><span class=\"time\">%s</span></td>\n"
                             ,launchTimeStringLoc);
-    fprintf(htmlOut, "      <td><span class=\"latlon\">%+0.5f, %+0.5f</span></td>\n", lat, lon);
-    fprintf(htmlOut, "      <td>&mdash;</td>\n");
+    fprintf(htmlOut, "      <td><span class=\"latlon\">%+0.5f, %+0.5f</span></td>\n"
+                            , degrees(latitude(launchState))
+                            , degrees(longitude(launchState)));
     fprintf(htmlOut, "    </tr>\n");
     fprintf(htmlOut, "  </table>\n");
-    
-    printHtmlHeader(htmlOut, "Burnout (stage 1)");
-    
-    /* Burnout */
-    fprintf(htmlOut, "  <table class=\"data_table\" >\n");
-    fprintf(htmlOut, "    <thead>\n");
-    fprintf(htmlOut, "      <th>Burnout Time [UTC]</th>\n");
-    fprintf(htmlOut, "      <th>Burn Time [s]</th>\n");
-    fprintf(htmlOut, "      <th>Burnout Velocity [m/s]</th>\n");
-    fprintf(htmlOut, "      <th>Burnout Altitude [km]</th>\n");
-    fprintf(htmlOut, "      <th>Burnout Downrange [km]</th>\n");
-    fprintf(htmlOut, "    </thead>\n");
-    fprintf(htmlOut, "    <tr>\n");
-    fprintf(htmlOut, "      <td><span class=\"time\">%s</span></td>\n"
-                            , burnoutTimeStringUtc);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", burnTime);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Velocity(burnout));
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
-    fprintf(htmlOut, "    </tr>\n");
-    fprintf(htmlOut, "  </table>\n");
-    
-    printHtmlHeader(htmlOut, "Apogee");
-    
+   
+    printHtmlHeader(htmlOut, "Flight Overview");
     fprintf(htmlOut, "  <table class=\"data_table\" >\n");
     fprintf(htmlOut, "    <thead>\n");
     fprintf(htmlOut, "      <tr>\n");
-    fprintf(htmlOut, "        <th>Apogee Time [UTC]</th>\n");
-    fprintf(htmlOut, "        <th>Coast Time [s]</th>\n");
-    fprintf(htmlOut, "        <th>Apogee Velocity [m/s]</th>\n");
-    fprintf(htmlOut, "        <th>Apogee Altitude [km]</th>\n");
-    fprintf(htmlOut, "        <th>Apogee Downrange [km]</th>\n");
+    fprintf(htmlOut, "        <th>Time [MET]</th>\n");
+    fprintf(htmlOut, "        <th>Event</th>\n");
+    fprintf(htmlOut, "        <th>Stage</th>\n");
+    fprintf(htmlOut, "        <th>Altitude [km]</th>\n");
+    fprintf(htmlOut, "        <th>Downrange [km]</th>\n");
+    fprintf(htmlOut, "        <th>Velocity [m/s]</th>\n");
     fprintf(htmlOut, "      </tr>\n");
     fprintf(htmlOut, "    </thead>\n");
-    fprintf(htmlOut, "    <tr>\n");
-    fprintf(htmlOut, "      <td><span class=\"time\">%s</span></td>\n"
-                            , apogeeTimeStringUtc);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", coastTime);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Velocity(apogee));
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
-    fprintf(htmlOut, "      <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
-    fprintf(htmlOut, "    </tr>\n");
-    fprintf(htmlOut, "  </table>\n");
+    fprintf(htmlOut, "    <tbody>\n");
+
+    printHtmlOverviewTable(htmlOut, stages, numOfStages);
     
-    printHtmlHeader(htmlOut, "Altitue");
-    printHtmlImage(htmlOut, "ascent-alt.png");
-    printHtmlImage(htmlOut, "ascent-alt-down.png");
+    fprintf(htmlOut, "  <hr />\n");
+    
+    for (i = 0; i < numOfStages; i++)
+    {
+        printHtmlDetailDiv(htmlOut, stages[i]);
+    }
     
     printHtmlHeader(htmlOut, "Launch Map");
     printHtmlImage(htmlOut, "launchmap.png");
     
     printHtmlHeader(htmlOut, "World Map");
     printHtmlImage(htmlOut, "worldmap.png");
-    
-    
     
     printHtmlFileFooter(htmlOut);
     
@@ -432,6 +383,158 @@ void printHtmlImage(FILE *out, char *img)
     fprintf(out, "  <img src=\"%s\" />\n", img);
 }
 
+void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
+{
+    int i;
+    
+    /* Loop Through Stages */
+    for (i = 0; i < numOfStages; i++)
+    {
+        state burnout    = stages[i].burnoutState;
+        state apogee     = stages[i].apogeeState;
+        state ignition   = stages[i].initialState;
+        state separation = stages[i].separationState;
+        state splashdown = stages[i].splashdownState;
+        char igniteTime[12];
+        char burnoutTime[12];
+        char separationTime[12];
+        char apogeeTime[12];
+        char splashdownTime[12];
+        SecondsToHmsString(ignition.met, igniteTime);
+        SecondsToHmsString(burnout.met, burnoutTime);
+        SecondsToHmsString(separation.met, separationTime);
+        SecondsToHmsString(apogee.met, apogeeTime);
+        SecondsToHmsString(splashdown.met, splashdownTime);
+        
+        //Stage Light
+        fprintf(out, "      <tr>\n");
+        fprintf(out, "        <td>%s</td>\n", igniteTime);
+        fprintf(out, "        <td>Stage Ignition</td>\n");
+        fprintf(out, "        <td>%d</td>\n", i + 1);
+        fprintf(out, "        <td>%0.2f</td>\n", Altitude(ignition) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Downrange(ignition) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Velocity(ignition));
+        fprintf(out, "      </tr>\n");
+        
+        //Burnout
+        fprintf(out, "      <tr>\n");
+        fprintf(out, "        <td>%s</td>\n", burnoutTime);
+        fprintf(out, "        <td>Burnout</td>\n");
+        fprintf(out, "        <td>%d</td>\n", i + 1);
+        fprintf(out, "        <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Velocity(burnout));
+        fprintf(out, "      </tr>\n");
+        
+        if (separation.met > 0.01)
+        {
+            //Separation
+            fprintf(out, "      <tr>\n");
+            fprintf(out, "        <td>%s</td>\n", separationTime);
+            fprintf(out, "        <td>Separation</td>\n");
+            fprintf(out, "        <td>%d</td>\n", i + 1);
+            fprintf(out, "        <td>%0.2f</td>\n", Altitude(separation) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Downrange(separation) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Velocity(separation));
+            fprintf(out, "      </tr>\n");
+        }
+        
+        //Apogee
+        fprintf(out, "      <tr>\n");
+        fprintf(out, "        <td>%s</td>\n", apogeeTime);
+        fprintf(out, "        <td>Apogee</td>\n");
+        fprintf(out, "        <td>%d</td>\n", i + 1);
+        fprintf(out, "        <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Velocity(apogee));
+        fprintf(out, "      </tr>\n");
+         
+        //Splashdown
+        fprintf(out, "      <tr>\n");
+        fprintf(out, "        <td>%s</td>\n", splashdownTime);
+        fprintf(out, "        <td>Splashdown</td>\n");
+        fprintf(out, "        <td>%d</td>\n", i + 1);
+        fprintf(out, "        <td>%0.2f</td>\n", Altitude(splashdown) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Downrange(splashdown) / 1000.0);
+        fprintf(out, "        <td>%0.2f</td>\n", Velocity(splashdown));
+        fprintf(out, "      </tr>\n");
+    }
+    fprintf(out, "    </tbody>\n");
+    fprintf(out, "  </table>\n");
+    
+    printHtmlImage(out, "overview.png");
+}
+void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
+{
+    fprintf(out, "<div class=\"stage_detail\">\n");
+    fprintf(out, "<h2>Stage %d Detail</h2>\n", stage.description.stage + 1);
+
+    state burnout    = stage.burnoutState;
+    state apogee     = stage.apogeeState;
+    state ignition   = stage.initialState;
+    state separation = stage.separationState;
+    state splashdown = stage.splashdownState;
+
+    double burnoutTimeJd = BeginTime() + SecondsToDecDay(burnout.met);
+    double apogeeTimeJd = BeginTime() + SecondsToDecDay(apogee.met);
+    char burnoutTimeStringUtc[256];
+    char apogeeTimeStringUtc[256];
+    time_t time;
+    struct tm *timeUtc;
+    
+    time = JdToUnixTime(burnoutTimeJd);
+    timeUtc   = gmtime(&time);
+    strftime(burnoutTimeStringUtc, 256, "%m/%d/%Y %H:%M:%S", timeUtc);
+    time = JdToUnixTime(apogeeTimeJd);
+    timeUtc   = gmtime(&time);
+    strftime(apogeeTimeStringUtc, 256, "%m/%d/%Y %H:%M:%S", timeUtc);
+    
+    double coastTime = apogee.met - burnout.met;
+    double burnTime = DecDayToSeconds(burnoutTimeJd - BeginTime());
+
+    // Burnout
+    fprintf(out, "  <h3>Burnout</h3>\n");
+    fprintf(out, "  <table class=\"data_table\" >\n");
+    fprintf(out, "    <thead>\n");
+    fprintf(out, "      <th>Burnout Time [UTC]</th>\n");
+    fprintf(out, "      <th>Burn Time [s]</th>\n");
+    fprintf(out, "      <th>Burnout Velocity [m/s]</th>\n");
+    fprintf(out, "      <th>Burnout Altitude [km]</th>\n");
+    fprintf(out, "      <th>Burnout Downrange [km]</th>\n");
+    fprintf(out, "    </thead>\n");
+    fprintf(out, "    <tr>\n");
+    fprintf(out, "      <td><span class=\"time\">%s</span></td>\n" , burnoutTimeStringUtc);
+    fprintf(out, "      <td>%0.2f</td>\n", burnTime);
+    fprintf(out, "      <td>%0.2f</td>\n", Velocity(burnout));
+    fprintf(out, "      <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
+    fprintf(out, "      <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
+    fprintf(out, "    </tr>\n");
+    fprintf(out, "  </table>\n");
+    
+    // Apogee
+    fprintf(out, "  <h3>Apogee</h3>\n");
+    fprintf(out, "  <table class=\"data_table\" >\n");
+    fprintf(out, "    <thead>\n");
+    fprintf(out, "      <tr>\n");
+    fprintf(out, "        <th>Apogee Time [UTC]</th>\n");
+    fprintf(out, "        <th>Time since Burnout [s]</th>\n");
+    fprintf(out, "        <th>Apogee Velocity [m/s]</th>\n");
+    fprintf(out, "        <th>Apogee Altitude [km]</th>\n");
+    fprintf(out, "        <th>Apogee Downrange [km]</th>\n");
+    fprintf(out, "      </tr>\n");
+    fprintf(out, "    </thead>\n");
+    fprintf(out, "    <tr>\n");
+    fprintf(out, "      <td><span class=\"time\">%s</span></td>\n", apogeeTimeStringUtc);
+    fprintf(out, "      <td>%0.2f</td>\n", coastTime);
+    fprintf(out, "      <td>%0.2f</td>\n", Velocity(apogee));
+    fprintf(out, "      <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
+    fprintf(out, "      <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
+    fprintf(out, "    </tr>\n");
+    fprintf(out, "  </table>\n");
+    
+    fprintf(out, "  </div>\n");
+}
+
 void printHtmlFileFooter(FILE *out)
 {
     fprintf(out, "</div>\n");
@@ -443,6 +546,7 @@ void MakePltFiles(state apogeeRocket)
 {
     makeLaunchMapPlt();
     makeAltDownPlt(apogeeRocket);
+    makeOverviewPlt(apogeeRocket);
 }
 
 void makeLaunchMapPlt()
@@ -450,10 +554,10 @@ void makeLaunchMapPlt()
     FILE *pltOut = NULL;
     double lat0, lon0, lat1, lon1;
     double latLaunch, lonLaunch;
-    state initRocket = InitialRocket();
+    state launchState = LaunchState();
     
-    latLaunch = degrees(latitude(initRocket));
-    lonLaunch = degrees(longitude(initRocket));
+    latLaunch = degrees(latitude(launchState));
+    lonLaunch = degrees(longitude(launchState));
     
     lat0 = latLaunch - 7.0;
     lat1 = latLaunch + 7.0;
@@ -511,4 +615,61 @@ void makeAltDownPlt(state apogee)
     fclose(pltOut);
 }
 
+void makeOverviewPlt(state apogee)
+{
+    FILE *pltOut = NULL;
+    double dr = Downrange(apogee);
+    double alt = Altitude(apogee);
+    
+    double xrange, yrange;
+    
+    if (dr > alt)
+    {
+        xrange = dr / 1000.0;
+        yrange = dr / 1777.8;
+    }
+    else
+    {
+        xrange = alt / 562.5;
+        yrange = alt / 1000.0;
+    }
+    
+    pltOut = fopen("Output/Gnuplot/tmp/overview.plt", "w");
+    
+    if (pltOut == NULL)
+        return;
+    
+    fprintf(pltOut, "#!/usr/bin/gnuplot -persist\n\n");
+    fprintf(pltOut, "reset\n\n");
+    fprintf(pltOut, "set xrange[0:%0.1f]\n", xrange + 1);
+    fprintf(pltOut, "set yrange[0:%0.1f]\n\n", yrange + 1);
+    fprintf(pltOut, "load \"./Output/Gnuplot/overview_base.plt\"\n");
+    fprintf(pltOut, "#    EOF");
+
+    fclose(pltOut);
+}
+
+void DumpState(state dump)
+{
+    printf("State Dump:\n");
+    printf("  s: %0.2f, %0.2f, %0.2f - Alt: %0.2f\n"
+        , dump.s.i / 1000.0
+        , dump.s.j / 1000.0
+        , dump.s.k / 1000.0
+        , Altitude(dump) / 1000.0);
+    printf("  U: %0.2f, %0.2f, %0.2f - Vel: %0.2f\n"
+        , dump.U.i
+        , dump.U.j
+        , dump.U.k
+        , Velocity(dump));
+    printf("  a: %0.2f, %0.2f, %0.2f\n"
+        , dump.a.i
+        , dump.a.j
+        , dump.a.k);
+    printf("  Motor:\n");
+    printf("    Fuel: %0.1f\n", dump.m.fuelMass);
+    printf("     Isp: %0.1f\n", dump.m.isp);
+    printf("   Thust: %0.1f\n", dump.m.thrust);
+    
+}
 

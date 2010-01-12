@@ -1,1 +1,1 @@
-state rk4(state r, float h, double t);
+state rk4(state r, float h);

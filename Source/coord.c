@@ -133,7 +133,7 @@ double Downrange(state r)
     double d;
     state init;
     
-    init = InitialRocket();
+    init = LaunchState();
     
     lat1 = latitude(init);
     lon1 = longitude(init);
@@ -185,4 +185,19 @@ double SecondsToDecDay(double seconds)
 double DecDayToSeconds(double decDay)
 {
     return decDay * 86400.0;
+}
+
+void SecondsToHmsString(double seconds, char *buffer)
+{
+    float hours, minutes;
+    
+    hours = seconds / 3600.0;
+    hours = floor(hours);
+    minutes = seconds - (hours * 3600);
+    minutes = minutes / 60.0;
+    minutes = floor(minutes);
+    seconds = seconds - (hours * 3600);
+    seconds = seconds - (minutes * 60);
+    
+    sprintf(buffer, "%0.0f:%02.0f:%04.1f", hours, minutes, seconds);
 }

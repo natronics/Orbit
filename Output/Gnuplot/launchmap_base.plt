@@ -14,7 +14,7 @@ unset tics
 
 set style line 1 lt 1 lw 0.3 lc rgb "#77aa88"
 set style line 2 lt 1 lw 0.3 lc rgb "#77bbcc"
-set style line 3 lt 3 lw 0.3 lc rgb "#555555"
+set style line 3 lt 0 lw 0.3 lc rgb "#555555"
 set style line 4 lt 1 lw 0.3 lc rgb "#bbcccc"
 set style line 5 lt 1 lw 3 lc rgb "#ff0000" pt 4 ps 0.5
 set style line 6 lt 1 lw 3 lc rgb "#eeee22" pt 4 ps 0.5

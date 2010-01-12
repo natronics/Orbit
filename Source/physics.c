@@ -6,6 +6,8 @@
 #include "orbit.h"
 #include "physics.h"
 
+double currentMass;
+
 vec force_Gravity(state r);
 double rho(double h);
 double zTemperature(double h);
@@ -13,15 +15,15 @@ double zTemperature(double h);
 vec LinearAcceleration(state r, double t)
 {
     vec g, d, th, physics;
-    double mass = TotalMass(r.m);
+    currentMass = RocketMass(r, t);
     
     g = force_Gravity(r);
     d = Force_Drag(r, t);
     th = Force_Thrust(r, t);
     
-    physics.i = (g.i + d.i + th.i) / mass;
-    physics.j = (g.j + d.j + th.j) / mass;
-    physics.k = (g.k + d.k + th.k) / mass;
+    physics.i = (g.i + d.i + th.i) / currentMass;
+    physics.j = (g.j + d.j + th.j) / currentMass;
+    physics.k = (g.k + d.k + th.k) / currentMass;
     
     return physics;
 }
@@ -42,7 +44,7 @@ vec force_Gravity(state r)
     vec g, e;
     double gravity;
     
-    gravity = G * ((Me * TotalMass(r.m))/Square(Position(r)));
+    gravity = G * ((Me * currentMass)/Square(Position(r)));
     e = UnitVec(r.s);
 
     g.i = gravity * e.i;
@@ -59,9 +61,8 @@ vec Force_Drag(state r , double t)
     double A = 0.01539;
     double totalDrag, h;
     
-    /*
-    v = unitVec(r.U);
-    h = altitude(r);
+    v = UnitVec(r.U);
+    h = Altitude(r);
     
     totalDrag = -(0.5 * rho(h) * Velocity(r)*Velocity(r) * A  * Cd);
     
@@ -69,12 +70,8 @@ vec Force_Drag(state r , double t)
     d.j = totalDrag * v.j;
     d.k = totalDrag * v.k;
     
-    */
-    d.i = 0.0;
-    d.j = 0.0;
-    d.k = 0.0;
-    
-    
+    //d = ZeroVec();
+     
     return d;
 }
 
@@ -90,25 +87,19 @@ vec Force_Thrust(state r, double t)
     double phi;
     double rate = radians(40.0) / 100.0;
 
-    Ft.i = 0.0;
-    Ft.j = 0.0;
-    Ft.k = 0.0;
+    Ft = ZeroVec();
+
+    thrust = r.m.thrust;
+    phi = radians(3.0);
     
-    if (r.mode == BURNING)
+    if (CurrentStage().mode == BURNING)
     {
-        //phi = rate * t + phi_init;
-        phi = radians(3.0);
-        //phi = 0.0;
-        thrust =  g_0 * I_sp() * mdot();
-        
-        
         Ft_enu.i = thrust * sin(phi);
         Ft_enu.j = 0.0;
         Ft_enu.k = thrust * cos(phi);
-        
+
         Ft_ecef = EnuToEcef(Ft_enu, r);
         Ft = Ft_ecef;
-        
         
         if ( Norm(r.U) > 50.0 ) 
         {
@@ -121,28 +112,6 @@ vec Force_Thrust(state r, double t)
     }
 
     return Ft;
-}
-
-double updateFuelMass(state r, double t)
-{
-    double newFuelMass;
-    double currentFuelMass = r.m.fuel;
-    
-    if (currentFuelMass > 0.0)
-    {
-        newFuelMass = InitialRocket().m.fuel - mdot()*t;
-        if (newFuelMass > 0.0)
-        {
-            return newFuelMass;
-        }
-        else
-        {
-            setNewMode(COASING);
-            return 0.0;
-        }
-    }
-    
-    return r.m.fuel;
 }
 
 double rho(double h)
@@ -177,19 +146,46 @@ double zTemperature(double h)
    return -100.0;
 }
 
-double KE(state r)
+double KE(state r, double met)
 {
-    return 0.5 * TotalMass(r.m) * Square(Velocity(r));
+    return 0.5 * RocketMass(r, met) * Square(Velocity(r));
 }
 
-double PE(state r)
+double PE(state r, double met)
 {
-    return (G * Me * TotalMass(r.m))/Position(r) - (G * Me * TotalMass(r.m))/Re;
+    return (G * Me * RocketMass(r, met))/Position(r) - (G * Me * RocketMass(r, met))/Re;
 }
 
-double TotalMass(mass m)
+double RocketMass(state r, double met)
 {
-    return m.fuel + m.structure;
-    //return 10.0;
+    Rocket_Stage currentStage = CurrentStage();
+    Rocket_Stage *rocket = WholeRocket();
+    double totalMass = 0;
+    int i;
+    
+    // If we are atteched to the rocket
+    if (currentStage.mode < SEPARATED)
+    {
+        // Get attached stages
+        for (i = currentStage.description.stage; i < NumberOfStages(); i++)
+        {
+            // Add empty mass's
+            totalMass += rocket[i].description.emptyMass;
+            // Get the fuel of the unlit stages
+            if (i > currentStage.description.stage)
+            {   
+                totalMass += rocket[i].initialState.m.fuelMass;
+            }
+        }
+    }
+    else
+    {
+        totalMass += currentStage.description.emptyMass;
+    }
+    
+    // Get Current fuel mass
+    totalMass += r.m.fuelMass;
+    
+    return totalMass;
 }
 

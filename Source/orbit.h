@@ -1,9 +1,8 @@
-#define VERSION 0.12
+#define VERSION 0.14
 
-state InitialRocket();
-double I_sp();
-double mdot();
-void setNewMode(unsigned int mode);
-unsigned int getNewMode();
-unsigned int hasNewMode();
 double BeginTime();
+double RunTime();
+state LaunchState();
+int NumberOfStages();
+Rocket_Stage CurrentStage();
+Rocket_Stage *WholeRocket();

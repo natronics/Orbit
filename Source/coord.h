@@ -19,3 +19,4 @@ double degrees(double radians);
 time_t JdToUnixTime(double JD);
 double SecondsToDecDay(double seconds);
 double DecDayToSeconds(double decDay);
+void SecondsToHmsString(double seconds, char *buffer);

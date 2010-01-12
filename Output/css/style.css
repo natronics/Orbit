@@ -12,15 +12,24 @@ h1 {
 }
 
 h2 {
-    font-size: 1.3em;
+    font-size: 1.5em;
     letter-spacing: 0px;
     font-weight: bold;
-    margin: 20px 0 0 0;
-    padding: 5px 0 5px 0;
+    margin: 25px 0 10px 0;
+    padding: 5px 0 0 0;
+    border-bottom: 1px dotted #444;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
 }
 
 hr {
     display: none;
+}
+
+img {
+    display: block;
+    margin: 0 auto;
+    //width: 300px;
 }
 
 #header {
@@ -76,5 +85,19 @@ hr {
     .data_table .total td {
         border-top: 1px solid #999;
         border-bottom: 1px solid #999;
+    }
+
+.stage_detail {
+    background: #f7f7f7;
+    border: 1px solid #ccc;
+    margin: 10px 10px 10px 0;
+    padding: 15px;
+}
+
+    .stage_detail h2 {
+        background: #246;
+        color: #fff;
+        margin: -15px -15px 0 -15px;
+        padding: 0.5em;
     }
 

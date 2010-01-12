@@ -3,7 +3,7 @@
 unset key
 
 set style line 1 lt 1 lw 2 lc rgb "#ff0000"
-set style line 2 lt 1 lw 2 lc rgb "#eeee22"
+set style line 2 lt 1 lw 2 lc rgb "#444444"
 set term png truecolor size 512,512
 set out "Output/ascent-alt-down.png"
 

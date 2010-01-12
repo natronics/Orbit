@@ -54,3 +54,14 @@ double AngleVec(vec a, vec b)
     
     return angle;
 }
+
+vec ZeroVec()
+{
+    vec v;
+    
+    v.i = 0.0;
+    v.j = 0.0;
+    v.k = 0.0;
+    
+    return v;
+}

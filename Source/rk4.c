@@ -34,8 +34,8 @@ double rk4secondDeriv[4][DOF];
  * First Derivative (eg, velocity)      = firstDeriv
  * Function (eg, position               = function
  *
- * initial values   = _n
- * next guess       = _n1
+ * initial values   = *_n
+ * next guess       = *_n1
  *
  * One Eulers step:
  * secondDeriv = ::get from program::
@@ -47,15 +47,15 @@ double rk4secondDeriv[4][DOF];
  *
  * You are not expected to understand this.
  */
-state rk4(state r, float h, double t)
+state rk4(state r, float h)
 {
     int i;
     double average;
+    double t = r.met;
     
     // Prime the pump
     initilize(r);
-    
-    
+     
     /* First Steps */
     evalSecondDeriv(r, t);                  //Begining
     
@@ -124,13 +124,6 @@ state rk4(state r, float h, double t)
     r = setFirstDeriv(r, firstDeriv_n1);
     r = setFunction(r, function_n1);
     r.a = LinearAcceleration(r, t + h);
-    
-    r.m.fuel = updateFuelMass(r, t);
-    
-    if (hasNewMode() == 1)
-    {
-        r.mode = getNewMode();
-    }
 
     return r;
 }

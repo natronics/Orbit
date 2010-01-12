@@ -10,33 +10,39 @@
 #include "rk4.h"
 #include "orbit.h"
 
-struct config_t cfg;
-state initRocket;
-double Isp;
-double thrust_init;
-double beginTime;
-float h;
-char *outputFileName;
-unsigned int hasNewModeBool = 0;
-unsigned int newMode = 0;
+struct config_t cfg;                //Config File
+double beginTime;                   //In JD
+float h;                            //Timestep
+double Jd;                          //Current time in Julian Date 
+double Met;                         //Current time in Mission Elapsed Time
+int numberOfStages;                 //Total number of stages
+double simulationRunTime;           //How long the simulation took in seconds
+
 FILE *outBurn;
 FILE *outCoast;
 FILE *outKml;
 FILE *outForce;
+FILE *outSpent;
+
+state launchState;                  //Position, time, etc at launch
+Rocket_Stage *stages;               //The rocket
+Rocket_Stage currentStage;          //The stage currently being simulated
 
 void printHelp();
 void printVersion();
 void readConfigFile(char *filename);
-void run();
+Rocket_Stage run(Rocket_Stage stage);
 
 /**
  * ToOrbit Sim
  */
 int main(int argc, char **argv)
 {
-    char *file = "orbit.cfg"; //Default config file name
+    char *file = "orbit.cfg";   //Default config file name
     int i;
+    clock_t start, end;         //For seeing how long the simulation takes
     
+    /* Read switches */
     /* Start at i = 1 to skip the command name. */
     for (i = 1; i < argc; i++) 
     {
@@ -64,18 +70,25 @@ int main(int argc, char **argv)
     }
     
     /* Read the config file */
+    /* reading the config file should populate all of the start time and 
+     * rocket stucts, so we can use them below */
     readConfigFile(file);
     
-    // Open output files for editing
+    /* Output File handleing */
+    
+    // Try to open files
     outBurn = fopen("Output/out-burn.dat", "w");
     outCoast = fopen("Output/out-coast.dat", "w");
     outKml = fopen("Output/out.kml", "w");
     outForce = fopen("Output/out-force.dat", "w");
+    outSpent = fopen("Output/out-spentStages.dat", "w");
     
+    // See if it worked
     if (   outBurn == NULL 
         || outCoast == NULL 
         || outKml == NULL
-        || outForce == NULL )
+        || outForce == NULL 
+        || outSpent == NULL)
     {
         printf("File Handle error.");
         exit(1);
@@ -84,11 +97,47 @@ int main(int argc, char **argv)
     // Print Headers
     PrintHeader(outBurn);
     PrintHeader(outCoast);
+    PrintHeader(outSpent);
     PrintKmlHeader(outKml);
     
-    // Do it
-    run();
+    /* Begin Simulation */
+    start = clock();
     
+    // Set the time
+    Met = 0;
+    Jd = BeginTime();
+    
+    stages[0].initialState = LaunchState();
+    
+    /* Do it */
+    for(i = 0; i < numberOfStages; i++)
+    {
+        stages[i] = run(stages[i]);
+    
+        if ((i + 1) < numberOfStages)
+        {
+            state nextStageInitialState = stages[i].separationState;
+            stages[i + 1].initialState.s = nextStageInitialState.s;
+            stages[i + 1].initialState.U = nextStageInitialState.U;
+            stages[i + 1].initialState.a = LinearAcceleration(stages[i + 1].initialState, Met);
+            stages[i + 1].initialState.met = nextStageInitialState.met;
+            double backInTime = Met - nextStageInitialState.met;
+            Met = nextStageInitialState.met;
+            Jd = Jd - SecondsToDecDay(backInTime);
+        }
+        fprintf(outBurn, "\n");
+        fprintf(outCoast, "\n");
+        PrintSimResult(stages[i]);
+    }
+    
+    /* Finished */
+    end = clock();
+    simulationRunTime = ((double) (end - start)) / CLOCKS_PER_SEC;
+    
+    PrintHtmlResult(stages);
+    MakePltFiles(stages[numberOfStages - 1].apogeeState);
+    
+    /* Close open files */
     // Print Footers
     PrintKmlFooter(outKml);
     
@@ -96,95 +145,125 @@ int main(int argc, char **argv)
     fclose(outBurn);
     fclose(outCoast);
     fclose(outKml);
+    fclose(outSpent);
     
-    // exit
+    /* Free memory */
+    free(stages);
+    
+    /* exit */
     return 0;
 }
 
 /**
  * Handles the actual running of the program
  */
-void run()
+Rocket_Stage run(Rocket_Stage stage)
 {   
-    double lastTime;
-    double Jd, Met;
-    double alt, lastAlt;
+    double simTime;
+    double lastTime = 0;
+    double currentAltitude, lastAltitude;
+    double burnoutTime = 0;
     unsigned int mode, lastMode;
+    int notLastStage = 1;
     int i;
-    state rocket, lastRocket;
-    state burnoutRocket;
-    state apogeeRocket;
-    double time_bo;         //JD
-    double time_apogee;     //JD
-    clock_t start, end;
-    double elapsed;
+    state currentState;
+    state lastState;
 
-    start = clock();
+    // Init
+    currentState = stage.initialState;
+    lastState = stage.initialState;
+    lastAltitude = Altitude(currentState);
+    lastMode = stage.mode;
     
-    Jd = BeginTime();
-    
-    rocket = InitialRocket();
-    lastRocket = InitialRocket();
-    
-    lastTime = 0;
-    for (Met = 0; Met < 10000; Met += h)
+    if (stage.description.stage >= (NumberOfStages() - 1))
     {
-        Jd += SecondsToDecDay(h);
-        
-        alt = Altitude(rocket);
-        lastAlt = Altitude(lastRocket);
-        
-        mode = rocket.mode;
-        lastMode = lastRocket.mode;
-        
-        if (lastAlt < alt)
+        notLastStage = 0;
+    }
+    
+    /* Run the simulation until the stage hits the ground or it's taking too
+     * long. whichever comes first. 
+     */
+    for (simTime = Met; simTime < 1000; simTime += h)
+    {        
+        // Evaluate current state
+        currentAltitude = Altitude(currentState);
+        if (stage.mode == BURNING && currentState.m.fuelMass < 0)
         {
-            apogeeRocket = rocket;
-            time_apogee = Jd;
+            stage.mode = COASING;
+        }
+        mode = stage.mode;
+        
+        // If the rocket starts to decend, then we must have pased apogee
+        ///TODO: this is, of course, not always true.
+        ///TODO: also, I should interpolate this.
+        if (lastAltitude < currentAltitude)
+        {
+            stage.apogeeState = lastState;
         }
         
-        if (alt < -1) // hit ground
+        // If the stage is below the "ground"
+        ///TODO: this should be interpolated
+        if (currentAltitude < 0)
         {
+            stage.splashdownState = lastState;
             break;
         }
         
+        // As long as the stage motor is lit
         if (mode == BURNING)
         {
-            PrintLine(outBurn, Jd, Met, rocket);       //Print File
-            PrintForceLine(outForce, Jd, Met, rocket); //Print File
+            currentState.m.fuelMass -= 0.1;
+            PrintStateLine(outBurn, Jd, currentState);  
         }
         else
         {
+            // If we just stoped burning
             if (lastMode == BURNING)
             {
-                burnoutRocket = lastRocket;
-                time_bo = Jd;
+                stage.burnoutState = currentState;
+                burnoutTime = Met;
             }
-            PrintLine(outCoast, Jd, Met, rocket);      //Print File
-        }  
-        
+
+            // Wait some time, then separate
+            if (Met - burnoutTime > stage.description.stageDelay && mode < SEPARATED
+                && notLastStage > 0)
+            {
+                stage.separationState = currentState;
+                stage.mode = SEPARATED;
+            }
+            
+            // Print
+            if (stage.mode == SEPARATED)
+                PrintStateLine(outSpent, Jd, currentState);
+            else
+                PrintStateLine(outCoast, Jd, currentState);
+        }
+      
+        // Making a kml file with updates only ever one second
         if ( (Met - lastTime) > 1.0 )
         {
-            PrintKmlLine(outKml, rocket);
+            PrintKmlLine(outKml, currentState);
             lastTime = Met;
         }
         
-        lastRocket = rocket;                //LastRocket
-        rocket = rk4(rocket, h, Met);       //NewRocket
+        lastState = currentState;                       //LastRocket
+        lastAltitude = Altitude(currentState);
+        lastMode = stage.mode;                          //LastMode
+        currentState = rk4(currentState, h);            //NewRocket
+        Jd += SecondsToDecDay(h);                       //Increment time
+        Met += h;
+        currentState.met = Met;
+        currentStage = stage;
     }
-
-    end = clock();
-    elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
-
-    PrintResult(burnoutRocket, apogeeRocket, time_bo, time_apogee);
-    PrintHtmlResult(burnoutRocket, apogeeRocket, time_bo, time_apogee, elapsed);
-    MakePltFiles(apogeeRocket);
+    
+    return stage;
 }
 
 void readConfigFile(char *filename)
 {
-    vec U_enu, U_ecef;
-
+    int numOfStages;
+    int i;
+    
     /* Initialize the configuration */
     config_init(&cfg);
     
@@ -197,38 +276,21 @@ void readConfigFile(char *filename)
     else
     {
         /* Config file layout */
-        config_setting_t *tstep         = NULL;
-        config_setting_t *outFile       = NULL;
+        config_setting_t *configTStep           = NULL;
+        config_setting_t *configLaunchPosition  = NULL;
+        config_setting_t *configLaunchTime      = NULL;
+        config_setting_t *configStages          = NULL;
         
-        config_setting_t *pos           = NULL;
-        config_setting_t *vel           = NULL;
-        config_setting_t *jd            = NULL;
-        
-        config_setting_t *emass         = NULL;
-        config_setting_t *fmass         = NULL;
-        config_setting_t *isp           = NULL;   
-        config_setting_t *thrust        = NULL;     
-	    config_setting_t *leng          = NULL;
-	    config_setting_t *OD            = NULL;
-        
-        tstep       = config_lookup(&cfg, "timeStep");
-        outFile     = config_lookup(&cfg, "outputFile");
-        
-        pos         = config_lookup(&cfg, "rocketInit.position");
-        vel         = config_lookup(&cfg, "rocketInit.velocity");
-        jd          = config_lookup(&cfg, "rocketInit.juliandate");
-            
-        emass       = config_lookup(&cfg, "rocketDesc.emptyMass");
-        fmass       = config_lookup(&cfg, "rocketDesc.fuelMass");
-        isp         = config_lookup(&cfg, "rocketDesc.Isp");
-        thrust      = config_lookup(&cfg, "rocketDesc.thrust");
-	    leng        = config_lookup(&cfg, "rocketDesc.length");
-	    OD          = config_lookup(&cfg, "rocketDesc.OD");
+        configTStep             = config_lookup(&cfg, "timeStep");
+        configLaunchPosition    = config_lookup(&cfg, "launch.position");
+        configLaunchTime        = config_lookup(&cfg, "launch.juliandate");
+        configStages            = config_lookup(&cfg, "stages");
 	
 	    /* Make sure values are found in the config file */
-        if ( !tstep || !outFile || !pos || !vel 
-            || !emass || !fmass || !isp || !thrust
-            || !leng || !OD || !jd) 
+        if (    !configTStep 
+             || !configLaunchPosition 
+             || !configLaunchTime 
+             || !configStages) 
         {
             printf("failed config_lookup\n");
             exit(1);
@@ -236,102 +298,103 @@ void readConfigFile(char *filename)
         else
         {
             // Time Step
-            h = config_setting_get_float(tstep);
+            h = config_setting_get_float(configTStep);
             
-            // output file name
-            outputFileName = (char*) config_setting_get_string(outFile);
-            
-            // Position
-            double lat = (double) config_setting_get_float_elem(pos, 0);
-            double lon = (double) config_setting_get_float_elem(pos, 1);
-            double alt = (double) config_setting_get_float_elem(pos, 2);
-            
-            // Velocity
-            double U_x = (double) config_setting_get_float_elem(vel, 0);
-            double U_y = (double) config_setting_get_float_elem(vel, 1);
-            double U_z = (double) config_setting_get_float_elem(vel, 2);
+            // Launch Position
+            double lat = (double) config_setting_get_float_elem(configLaunchPosition, 0);
+            double lon = (double) config_setting_get_float_elem(configLaunchPosition, 1);
+            double alt = (double) config_setting_get_float_elem(configLaunchPosition, 2);
             
             // Time
-            beginTime = (double) config_setting_get_float(jd);
+            beginTime = (double) config_setting_get_float(configLaunchTime);
             
-            // Rocket
-            double emptyMass = (double) config_setting_get_float(emass);
-            double fuelMass = (double) config_setting_get_float(fmass);
-            Isp = (double) config_setting_get_float(isp);
-            thrust_init = (double) config_setting_get_float(thrust);
-            double length = (double) config_setting_get_float(leng);
-            double outerDiameter = (double) config_setting_get_float(OD);
-            
-            initRocket.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
-            
-            U_enu.i = U_x;
-            U_enu.j = U_y;
-            U_enu.k = U_z;
-            
-            U_ecef = EnuToEcef(U_enu, initRocket);
-            
-            initRocket.U = U_ecef;
-            
-            initRocket.r.i = 0.0;
-            initRocket.r.j = 0.0;
-            initRocket.r.k = 0.0;
-            
-            initRocket.q.i = 0.0;
-            initRocket.q.j = 0.0;
-            initRocket.q.k = 0.0;
-            
-            initRocket.p.i = 0.0;
-            initRocket.p.j = 0.0;
-            initRocket.p.k = 0.0;
+            /* Stages */
+            // Allocate Memory
+            numOfStages = config_setting_length(configStages);
+            stages = (Rocket_Stage *) malloc(numOfStages * sizeof(Rocket_Stage));
+            numberOfStages = numOfStages;   //GlobalVariable
 
-            initRocket.m.structure = emptyMass;
-            initRocket.m.fuel = fuelMass;
-
-            vec accel = LinearAcceleration(initRocket, 0);
-            initRocket.a = accel;
+            // Loop through stages in config file
+            for (i = 0; i < numOfStages; i++)
+            {
+                // Get one stage
+                config_setting_t *stage = NULL;
+                stage =  config_setting_get_elem(configStages, i);
+                if (stage == NULL)
+                {
+                    printf("Stage %d broke", i + 1);
+                    exit(1);
+                }
+                
+                double emptyMass    = (double) config_setting_get_float_elem(stage, 0);
+                double fuelMass     = (double) config_setting_get_float_elem(stage, 1);
+                double isp          = (double) config_setting_get_float_elem(stage, 2);
+                double thrust       = (double) config_setting_get_float_elem(stage, 3);
+                double delay        = (double) config_setting_get_float_elem(stage, 4);
+                
+                rocketDesc desc;
+                desc.stage = i;
+                desc.emptyMass = emptyMass;
+                desc.stageDelay = delay;
+                
+                motor m;
+                m.fuelMass = fuelMass;
+                m.isp = isp;
+                m.thrust = thrust;
+                
+                state initialState;
+                initialState.s = ZeroVec();
+                initialState.U = ZeroVec();
+                initialState.a = ZeroVec();
+                initialState.m = m;
+                initialState.met = 0;
+                
+                // Init Stage
+                stages[i].description = desc;
+                stages[i].initialState = initialState;
+                stages[i].currentState = initialState;    
+                stages[i].mode = BURNING;
+            }// End Stages Loop
+                        
+            state initialRocketState;
+            initialRocketState = stages[0].initialState;
+            initialRocketState.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
+            initialRocketState.U = stages[0].initialState.U;
+            initialRocketState.a = LinearAcceleration(initialRocketState, 0);
             
-            initRocket.mode = BURNING;
-        }
-    }
+            launchState = initialRocketState;
+        }// End config lookup if
+    }// End config file read if
 }
 
-state InitialRocket()
+state LaunchState()
 {
-    return initRocket;
-}
-
-double I_sp()
-{
-    return Isp;
-}
-
-double mdot()
-{
-    double mdot;
-    mdot = thrust_init / (g_0 * Isp);
-    return mdot;
-}
-
-void setNewMode(unsigned int mode)
-{
-    newMode = mode;
-    hasNewModeBool = 1;
-}
-
-unsigned int getNewMode()
-{
-    hasNewModeBool = 0;
-    return newMode;
-}
-
-unsigned int hasNewMode()
-{
-    return hasNewModeBool;
+    return launchState;
 }
 
 double BeginTime()
 {
     return beginTime;
+}
+
+double RunTime()
+{
+    return simulationRunTime;
+}
+
+Rocket_Stage CurrentStage()
+{
+    return currentStage;
+}
+
+int NumberOfStages()
+{
+    return numberOfStages;
+}
+
+Rocket_Stage *WholeRocket()
+{
+    return stages;
 }
 
 void printHelp()
