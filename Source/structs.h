@@ -6,7 +6,9 @@
 typedef struct {double i; double j; double k;} vec;
 typedef struct {double fuelMass; double isp; double thrust;} motor;
 typedef struct {vec s; vec U; vec a; motor m; double met;} state;
-typedef struct {unsigned int stage; double emptyMass; double stageDelay;} rocketDesc;
+typedef struct {unsigned int stage; double emptyMass; 
+                    double ignitionDelay; 
+                    double stageDelay;} rocketDesc;
 typedef struct {rocketDesc description; state currentState; 
                     state initialState;
                     state burnoutState;

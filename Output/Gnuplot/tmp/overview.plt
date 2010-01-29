@@ -2,8 +2,10 @@
 
 reset
 
-set xrange[0:55.9]
-set yrange[0:31.9]
+set xrange[0:258.2]
+set yrange[0:159.0]
 
 load "./Output/Gnuplot/overview_base.plt"
+set autoscale y
+load "./Output/Gnuplot/overview_vel.accel_base.plt"
 #    EOF

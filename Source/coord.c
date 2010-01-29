@@ -201,3 +201,32 @@ void SecondsToHmsString(double seconds, char *buffer)
     
     sprintf(buffer, "%0.0f:%02.0f:%04.1f", hours, minutes, seconds);
 }
+
+double Interpolat1D(double *sample, double value)
+{
+    double answer = 0;
+    double n, n1, a_n, a_n1;
+    int i, j;
+    
+    for (i = 0; i < 5; i++)
+    {
+        //double *values = sample[i];
+       //if (values[0] > value)
+            break;
+    }
+    
+    if (i > 0)
+    {
+        //n = sample[i - 1][0];
+        //n1 = sample[i][0];
+        //a_n = sample[i - 1][1];
+        //a_n1 = sample[i][1];
+        
+        double a = (a_n1 - a_n) / (n1 - n);
+        double b = a_n - (a * n);
+        
+        answer = a*value + b;
+    }
+    
+    return answer;
+}

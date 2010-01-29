@@ -14,10 +14,10 @@ unset tics
 
 set style line 1 lt 1 lw 0.3 lc rgb "#77aa88"
 set style line 2 lt 1 lw 0.3 lc rgb "#77bbcc"
-set style line 3 lt 0 lw 0.3 lc rgb "#555555"
+set style line 3 lt 0 lw 0.3 lc rgb "#aaaaaa"
 set style line 4 lt 1 lw 0.3 lc rgb "#bbcccc"
-set style line 5 lt 1 lw 3 lc rgb "#ff0000" pt 4 ps 0.5
-set style line 6 lt 1 lw 3 lc rgb "#eeee22" pt 4 ps 0.5
+set style line 5 lt 1 lw 3 lc rgb "#dd2222"
+set style line 6 lt 1 lw 3 lc rgb "#000000"
 
 a = 6371.0
 
@@ -32,14 +32,15 @@ set ylabel "Latitude [deg]"
 set xlabel "Longitude [deg]"
 set grid lc rgb "#cccccc"
 
-set terminal png truecolor size 1024, 1024
+set term png font "/usr/share/fonts/truetype/Helvetica/Helvetica LT.ttf" 10 truecolor size 1100, 1100
 set out "Output/launchmap.png"
 
 plot "./Output/MapData/world.map" every 5 us 2:1 w lines linestyle 1, \
 "./Output/MapData/rivers.map" every 5 us 2:1 w lines linestyle 2, \
 "./Output/MapData/countries-us.map" us 2:1 w lines linestyle 3, \
-"./Output/out-burn.dat" us 16:15 w lines linestyle 5 ,\
-"./Output/out-coast.dat" us 16:15 w lines linestyle 6
+"./Output/out-coast.dat" us 16:15 w lines linestyle 6, \
+"./Output/out-burn.dat" us 16:15 w lines linestyle 5
+
 
 
 #    EOF

@@ -17,6 +17,7 @@ double Jd;                          //Current time in Julian Date
 double Met;                         //Current time in Mission Elapsed Time
 int numberOfStages;                 //Total number of stages
 double simulationRunTime;           //How long the simulation took in seconds
+double thrustCurve[6][2] = {{1,4},{2,5},{3,5},{4,4},{5,1},{6,0}};
 
 FILE *outBurn;
 FILE *outCoast;
@@ -108,10 +109,13 @@ int main(int argc, char **argv)
     Jd = BeginTime();
     
     stages[0].initialState = LaunchState();
+    stages[0].mode = BURNING;
     
     /* Do it */
     for(i = 0; i < numberOfStages; i++)
     {
+        //fprintf(outCoast, "100 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16  \n");
+        fprintf(outSpent, "\n");
         stages[i] = run(stages[i]);
     
         if ((i + 1) < numberOfStages)
@@ -126,7 +130,7 @@ int main(int argc, char **argv)
             Jd = Jd - SecondsToDecDay(backInTime);
         }
         fprintf(outBurn, "\n");
-        fprintf(outCoast, "\n");
+        
         PrintSimResult(stages[i]);
     }
     
@@ -135,7 +139,7 @@ int main(int argc, char **argv)
     simulationRunTime = ((double) (end - start)) / CLOCKS_PER_SEC;
     
     PrintHtmlResult(stages);
-    MakePltFiles(stages[numberOfStages - 1].apogeeState);
+    MakePltFiles(stages[numberOfStages - 1]);
     
     /* Close open files */
     // Print Footers
@@ -183,14 +187,24 @@ Rocket_Stage run(Rocket_Stage stage)
     /* Run the simulation until the stage hits the ground or it's taking too
      * long. whichever comes first. 
      */
-    for (simTime = Met; simTime < 1000; simTime += h)
-    {        
-        // Evaluate current state
+    for (simTime = 0; simTime < 10000; simTime += h)
+    {
+        // State Logic
         currentAltitude = Altitude(currentState);
+        if (stage.mode == INIT
+            && simTime >= stage.description.ignitionDelay)
+        {   
+            printf("Stage Ignition!\n");;
+            stage.mode = BURNING;
+        }
         if (stage.mode == BURNING && currentState.m.fuelMass < 0)
         {
+            printf("Burnout!\n");
             stage.mode = COASING;
+            stage.burnoutState = lastState;
+            burnoutTime = Met;
         }
+        
         mode = stage.mode;
         
         // If the rocket starts to decend, then we must have pased apogee
@@ -205,45 +219,53 @@ Rocket_Stage run(Rocket_Stage stage)
         ///TODO: this should be interpolated
         if (currentAltitude < 0)
         {
+            printf("Hit the Ground!!\n");
             stage.splashdownState = lastState;
             break;
         }
         
-        // As long as the stage motor is lit
         if (mode == BURNING)
         {
-            currentState.m.fuelMass -= 0.1;
-            PrintStateLine(outBurn, Jd, currentState);  
+            //printf("%0.2f     %0.2f    %0.1f\n", currentState.m.fuelMass, MDot(currentState, Met) , Met);
+            double mdot =  MDot(currentState, Met) * h;
+            currentState.m.fuelMass -= mdot;
         }
-        else
+        
+        if (mode > BURNING) // Wait some time, then separate
         {
-            // If we just stoped burning
-            if (lastMode == BURNING)
-            {
-                stage.burnoutState = currentState;
-                burnoutTime = Met;
-            }
-
-            // Wait some time, then separate
-            if (Met - burnoutTime > stage.description.stageDelay && mode < SEPARATED
+            if (Met - burnoutTime > stage.description.stageDelay 
+                && mode != SEPARATED
                 && notLastStage > 0)
             {
-                stage.separationState = currentState;
+                printf("Separation!\n");
+                stage.separationState = lastState;
                 stage.mode = SEPARATED;
             }
-            
-            // Print
-            if (stage.mode == SEPARATED)
-                PrintStateLine(outSpent, Jd, currentState);
-            else
-                PrintStateLine(outCoast, Jd, currentState);
         }
-      
-        // Making a kml file with updates only ever one second
-        if ( (Met - lastTime) > 1.0 )
+        
+        // Print files no more often than every tenth of a second.
+        if ( (Met - lastTime) > 0.1 )
         {
-            PrintKmlLine(outKml, currentState);
-            lastTime = Met;
+           // PrintKmlLine(outKml, currentState);
+            switch (mode)
+            {
+                case INIT:
+                    PrintStateLine(outCoast, Jd, currentState);
+                    break;
+                case BURNING:
+                    PrintStateLine(outBurn, Jd, currentState);
+                    break;
+                case COASING:
+                    PrintStateLine(outCoast, Jd, currentState);
+                    break;
+                case SEPARATED:
+                    PrintStateLine(outSpent, Jd, currentState);
+                    break;
+                default:
+                    PrintStateLine(outCoast, Jd, currentState);
+                    break;
+            }  
+            lastTime = Met;         
         }
         
         lastState = currentState;                       //LastRocket
@@ -255,6 +277,9 @@ Rocket_Stage run(Rocket_Stage stage)
         currentState.met = Met;
         currentStage = stage;
     }
+    
+    if (stage.separationState.met == 0.0)
+        stage.separationState = currentState;
     
     return stage;
 }
@@ -330,12 +355,14 @@ void readConfigFile(char *filename)
                 double fuelMass     = (double) config_setting_get_float_elem(stage, 1);
                 double isp          = (double) config_setting_get_float_elem(stage, 2);
                 double thrust       = (double) config_setting_get_float_elem(stage, 3);
-                double delay        = (double) config_setting_get_float_elem(stage, 4);
+                double ingnition    = (double) config_setting_get_float_elem(stage, 4);
+                double stageing     = (double) config_setting_get_float_elem(stage, 5);
                 
                 rocketDesc desc;
                 desc.stage = i;
                 desc.emptyMass = emptyMass;
-                desc.stageDelay = delay;
+                desc.ignitionDelay = ingnition;
+                desc.stageDelay = stageing;
                 
                 motor m;
                 m.fuelMass = fuelMass;
@@ -353,7 +380,7 @@ void readConfigFile(char *filename)
                 stages[i].description = desc;
                 stages[i].initialState = initialState;
                 stages[i].currentState = initialState;    
-                stages[i].mode = BURNING;
+                stages[i].mode = INIT;
             }// End Stages Loop
                         
             state initialRocketState;
@@ -408,6 +435,12 @@ void printHelp()
     printf("Examples:\n");
     printf("\torbit -c config.cfg\n");
     printf("\n");
+}
+
+double *ThrustCurve()
+{
+    return NULL;
+    //return thrustCurve;
 }
 
 void printVersion()

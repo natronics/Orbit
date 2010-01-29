@@ -23,7 +23,8 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages);
 void printHtmlDetailDiv(FILE *out, Rocket_Stage stage);
 void makeLaunchMapPlt();
 void makeAltDownPlt(state apogee);
-void makeOverviewPlt(state apogee);
+void makeOverviewPlt(state apogee, state burnout);
+char nar(double impulse);
 
 void PrintStateLine(FILE *outfile, double jd, state r)
 {
@@ -41,7 +42,7 @@ void PrintStateLine(FILE *outfile, double jd, state r)
     strcat(format, exp);            //7     U_y
     strcat(format, exp);            //8     U_z
     strcat(format, exp);            //9     a_x
-    strcat(format, exp);            //10     a_y
+    strcat(format, exp);            //10    a_y
     strcat(format, exp);            //11    a_z
     strcat(format, exp);            //12    mass
     strcat(format, exp);            //13    KE
@@ -191,6 +192,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
     double rocketTotalMass = 0;
     double rocketTotalFuelMass = 0;
     double rocketTotalStructureMass = 0;
+    double rocketTotalImpulse = 0;
     int numOfStages = NumberOfStages();
     
     char runTimeStringLoc[256];
@@ -236,7 +238,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
     
     // Start with when it was run
     printHtmlHeader(htmlOut, "Run Details");
-    fprintf(htmlOut, "  <p>Simulation run on %s and took %0.4f seconds</p>\n"
+    fprintf(htmlOut, "  <p>Simulation run on %s and took %0.2f seconds</p>\n"
                 ,   runTimeStringLoc
                 ,   RunTime());   
     
@@ -251,24 +253,51 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "        <th>I<sub>sp</sub> [s]</th>\n");
     fprintf(htmlOut, "        <th>Fuel Mass [kg]</th>\n");
     fprintf(htmlOut, "        <th>Dry Mass [kg]</th>\n");
+    fprintf(htmlOut, "        <th>Stage Mass [kg]</th>\n");
     fprintf(htmlOut, "        <th>Total Mass [kg]</th>\n");
-    fprintf(htmlOut, "        <th>Mass Ratio</th>\n");
+    fprintf(htmlOut, "        <th>Thust [N]</th>\n");
+    fprintf(htmlOut, "        <th>Mass Ratio (stage)</th>\n");
     fprintf(htmlOut, "        <th>Thrust to Weight Ratio</th>\n");
+    fprintf(htmlOut, "        <th>Impulse [N&middot;s]</th>\n");
     fprintf(htmlOut, "      <tr>\n");
     fprintf(htmlOut, "    </thead>\n");
-    fprintf(htmlOut, "    <tbody>\n");
+    fprintf(htmlOut, "  <tbody>\n");
+    
+    double rocketMassStage[numOfStages];
+    for (i = 0; i < numOfStages; i++)
+    {
+        Rocket_Stage stage = stages[i];
+        motor stageMotor = stage.initialState.m;
+        double fuelMass = stageMotor.fuelMass;
+        double emptyMass = stage.description.emptyMass;
+        
+        rocketMassStage[i] = fuelMass + emptyMass;
+    }
     
     // Loop through stages
     for (i = 0; i < numOfStages; i++)
     {
-        Rocket_Stage stage = stages[i];
+        int j;
+        Rocket_Stage stage      = stages[i];
         motor stageMotor        = stage.initialState.m;
         double isp              = stageMotor.isp;
         double fuelMass         = stageMotor.fuelMass;
         double emptyMass        = stage.description.emptyMass;
         double stageTotalMass   = fuelMass + emptyMass;
         double massRatio        = stageTotalMass / emptyMass;
-        double TTWRatio         = stageMotor.thrust / (g_0 * stageTotalMass);
+        double thrust           = stageMotor.thrust;
+        double burnTime         = stage.burnoutState.met - stage.initialState.met;
+        burnTime -= stage.description.ignitionDelay;
+        double impulse          = thrust * burnTime;
+        
+        double rocketMass = 0;
+        for(j = i; j < numOfStages; j++)
+        {
+            rocketMass += rocketMassStage[j];
+        }
+        
+        double TTWRatio = stageMotor.thrust / (g_0 * rocketMass);
+        
         
         fprintf(htmlOut, "      <tr>\n");
         fprintf(htmlOut, "        <td>%d</td>\n", i + 1);
@@ -276,14 +305,18 @@ void PrintHtmlResult(Rocket_Stage *stages)
         fprintf(htmlOut, "        <td>%0.2f</td>\n", fuelMass);
         fprintf(htmlOut, "        <td>%0.2f</td>\n", emptyMass);
         fprintf(htmlOut, "        <td>%0.2f</td>\n", stageTotalMass);
+        fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketMass);
+        fprintf(htmlOut, "        <td>%0.0f</td>\n", thrust);
         fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
         fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
+        fprintf(htmlOut, "        <td>%0.0f (%c)</td>\n", impulse, nar(impulse));
         fprintf(htmlOut, "      </tr>\n");
         
         // Add up the rocket totals
         rocketTotalMass += stageTotalMass;
         rocketTotalFuelMass += fuelMass;
         rocketTotalStructureMass += emptyMass;
+        rocketTotalImpulse += impulse;
     }
     
     double massRatio = rocketTotalMass / rocketTotalStructureMass;
@@ -297,9 +330,12 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "        <td>&mdash;</td>\n");
     fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalFuelMass);
     fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalStructureMass);
-    fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalMass);
+    fprintf(htmlOut, "        <td>&mdash;</td>\n");
+    fprintf(htmlOut, "        <td><span class=\"highlight\" title=\"GLOW - %0.2f tons\">%0.2f</span></td>\n", rocketTotalMass * 0.00110231131, rocketTotalMass);
+    fprintf(htmlOut, "        <td>&mdash;</td>\n");
     fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
     fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
+    fprintf(htmlOut, "        <td>%0.0f (%c)</td>\n", rocketTotalImpulse, nar(rocketTotalImpulse));
     fprintf(htmlOut, "      </tr>\n");
     fprintf(htmlOut, "    </tfoot>\n");
     fprintf(htmlOut, "  </table>\n");
@@ -409,7 +445,7 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
         //Stage Light
         fprintf(out, "      <tr>\n");
         fprintf(out, "        <td>%s</td>\n", igniteTime);
-        fprintf(out, "        <td>Stage Ignition</td>\n");
+        fprintf(out, "        <td><em>Stage Ignition</em></td>\n");
         fprintf(out, "        <td>%d</td>\n", i + 1);
         fprintf(out, "        <td>%0.2f</td>\n", Altitude(ignition) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Downrange(ignition) / 1000.0);
@@ -419,11 +455,14 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
         //Burnout
         fprintf(out, "      <tr>\n");
         fprintf(out, "        <td>%s</td>\n", burnoutTime);
-        fprintf(out, "        <td>Burnout</td>\n");
+        fprintf(out, "        <td><em>Burnout</em></td>\n");
         fprintf(out, "        <td>%d</td>\n", i + 1);
         fprintf(out, "        <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Velocity(burnout));
+        if ((i + 1) == numOfStages)
+            fprintf(out, "        <td><span class=\"highlight\">%0.2f</span></td>\n", Velocity(burnout));
+        else
+            fprintf(out, "        <td>%0.2f</td>\n", Velocity(burnout));
         fprintf(out, "      </tr>\n");
         
         if (separation.met > 0.01)
@@ -431,7 +470,7 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
             //Separation
             fprintf(out, "      <tr>\n");
             fprintf(out, "        <td>%s</td>\n", separationTime);
-            fprintf(out, "        <td>Separation</td>\n");
+            fprintf(out, "        <td><em>Separation</em></td>\n");
             fprintf(out, "        <td>%d</td>\n", i + 1);
             fprintf(out, "        <td>%0.2f</td>\n", Altitude(separation) / 1000.0);
             fprintf(out, "        <td>%0.2f</td>\n", Downrange(separation) / 1000.0);
@@ -442,7 +481,7 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
         //Apogee
         fprintf(out, "      <tr>\n");
         fprintf(out, "        <td>%s</td>\n", apogeeTime);
-        fprintf(out, "        <td>Apogee</td>\n");
+        fprintf(out, "        <td><em>Apogee</em></td>\n");
         fprintf(out, "        <td>%d</td>\n", i + 1);
         fprintf(out, "        <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
@@ -452,7 +491,7 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
         //Splashdown
         fprintf(out, "      <tr>\n");
         fprintf(out, "        <td>%s</td>\n", splashdownTime);
-        fprintf(out, "        <td>Splashdown</td>\n");
+        fprintf(out, "        <td><em>Splashdown</em></td>\n");
         fprintf(out, "        <td>%d</td>\n", i + 1);
         fprintf(out, "        <td>%0.2f</td>\n", Altitude(splashdown) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Downrange(splashdown) / 1000.0);
@@ -463,6 +502,7 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
     fprintf(out, "  </table>\n");
     
     printHtmlImage(out, "overview.png");
+    printHtmlImage(out, "overview.vel.accel.png");
 }
 void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
 {
@@ -490,7 +530,8 @@ void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
     strftime(apogeeTimeStringUtc, 256, "%m/%d/%Y %H:%M:%S", timeUtc);
     
     double coastTime = apogee.met - burnout.met;
-    double burnTime = DecDayToSeconds(burnoutTimeJd - BeginTime());
+    double burnTime = burnout.met - ignition.met;
+    burnTime -= stage.description.ignitionDelay;
 
     // Burnout
     fprintf(out, "  <h3>Burnout</h3>\n");
@@ -542,11 +583,16 @@ void printHtmlFileFooter(FILE *out)
     fprintf(out, "</html>\n");
 }
 
-void MakePltFiles(state apogeeRocket)
+void MakePltFiles(Rocket_Stage finalStage)
 {
+    state apogee = finalStage.apogeeState;
+    state burnout = finalStage.burnoutState;
+    
+    printf("apogee: %0.2f", Altitude(apogee) / 1000.0);
+    printf("burnout: %0.2f", Altitude(burnout) / 1000.0);
     makeLaunchMapPlt();
-    makeAltDownPlt(apogeeRocket);
-    makeOverviewPlt(apogeeRocket);
+    makeAltDownPlt(apogee);
+    makeOverviewPlt(apogee, burnout);
 }
 
 void makeLaunchMapPlt()
@@ -615,25 +661,37 @@ void makeAltDownPlt(state apogee)
     fclose(pltOut);
 }
 
-void makeOverviewPlt(state apogee)
+void makeOverviewPlt(state apogee, state burnout)
 {
     FILE *pltOut = NULL;
-    double dr = Downrange(apogee);
-    double alt = Altitude(apogee);
+    double dr, alt;
+    double dr_apo = Downrange(apogee);
+    double alt_apo = Altitude(apogee);
+    double dr_burn = Downrange(burnout);
+    double alt_burn = Altitude(burnout);
+    double aspect = 1.6283;
     
     double xrange, yrange;
     
-    if (dr > alt)
+    if ( (dr_burn / dr_apo) < 0.1)
+    {
+        dr = dr_burn;
+        alt = alt_burn;
+    }
+    
+    if ((dr / aspect) > alt)
     {
         xrange = dr / 1000.0;
-        yrange = dr / 1777.8;
+        yrange = dr / (1000.0 * aspect);
     }
     else
     {
-        xrange = alt / 562.5;
+        xrange = alt / (1000.0 / aspect);
         yrange = alt / 1000.0;
     }
     
+    //range = 400 * aspect;
+    //yrange = 400;
     pltOut = fopen("Output/Gnuplot/tmp/overview.plt", "w");
     
     if (pltOut == NULL)
@@ -644,6 +702,9 @@ void makeOverviewPlt(state apogee)
     fprintf(pltOut, "set xrange[0:%0.1f]\n", xrange + 1);
     fprintf(pltOut, "set yrange[0:%0.1f]\n\n", yrange + 1);
     fprintf(pltOut, "load \"./Output/Gnuplot/overview_base.plt\"\n");
+    fprintf(pltOut, "set autoscale y\n");
+    fprintf(pltOut, "load \"./Output/Gnuplot/overview_vel.accel_base.plt\"\n");
+    
     fprintf(pltOut, "#    EOF");
 
     fclose(pltOut);
@@ -671,5 +732,63 @@ void DumpState(state dump)
     printf("     Isp: %0.1f\n", dump.m.isp);
     printf("   Thust: %0.1f\n", dump.m.thrust);
     
+}
+
+char nar(double impulse)
+{
+    if (impulse < 2.50)
+        return 'A';
+    else if (impulse < 5.00)
+        return 'B';
+    else if (impulse < 10.00)
+        return 'C';
+    else if (impulse < 20.00)
+        return 'D';
+    else if (impulse < 40.00)
+        return 'E';
+    else if (impulse < 80.00)
+        return 'F';
+    else if (impulse < 160.00)
+        return 'G';
+    else if (impulse < 320.00)
+        return 'H';
+    else if (impulse < 640.00)
+        return 'I';
+    else if (impulse < 1280.00)
+        return 'J';
+    else if (impulse < 2560.00)
+        return 'K';
+    else if (impulse < 5120.00)
+        return 'L';
+    else if (impulse < 10240.00)
+        return 'M';
+    else if (impulse < 20480.00)
+        return 'N';
+    else if (impulse < 40960.00)
+        return 'O';
+    else if (impulse < 81920.00)
+        return 'P';
+    else if (impulse < 163840.00)
+        return 'Q';
+    else if (impulse < 327680.00)
+        return 'R';
+    else if (impulse < 655360.00)
+        return 'S';
+    else if (impulse < 1310720.00)
+        return 'T';
+    else if (impulse < 2621440.00)
+        return 'U';
+    else if (impulse < 5242880.00)
+        return 'V';
+    else if (impulse < 10485760.00)
+        return 'W';
+    else if (impulse < 20971520.00)
+        return 'X';
+    else if (impulse < 41943040.00)
+        return 'Y';
+    else if (impulse < 83886080.00)
+        return 'Z';
+        
+   return '-';
 }
 

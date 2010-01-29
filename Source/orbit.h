@@ -6,3 +6,4 @@ state LaunchState();
 int NumberOfStages();
 Rocket_Stage CurrentStage();
 Rocket_Stage *WholeRocket();
+double *ThrustCurve();

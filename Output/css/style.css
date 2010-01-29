@@ -99,5 +99,12 @@ img {
         color: #fff;
         margin: -15px -15px 0 -15px;
         padding: 0.5em;
+        font-size: 1.3em;
     }
+    
+.highlight {
+    background: #ff0;
+    font-weight: bold;
+    padding: 0 5px;
+}
 

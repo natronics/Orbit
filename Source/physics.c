@@ -57,14 +57,21 @@ vec force_Gravity(state r)
 vec Force_Drag(state r , double t)
 {
     vec d, v;
-    double Cd = 0.75;
-    double A = 0.01539;
-    double totalDrag, h;
+    double Cd = 0.25;
+    //double A = 0.01539;
+    double A = 0.09;
+    double totalDrag, alt;
+    
+    if (CurrentStage().mode == SEPARATED)
+    {
+        Cd = 1.4;
+        A = 10.0;
+    }
     
     v = UnitVec(r.U);
-    h = Altitude(r);
+    alt = Altitude(r);
     
-    totalDrag = -(0.5 * rho(h) * Velocity(r)*Velocity(r) * A  * Cd);
+    totalDrag = -(0.5 * rho(alt) * Velocity(r)*Velocity(r) * A  * Cd);
     
     d.i = totalDrag * v.i;
     d.j = totalDrag * v.j;
@@ -90,7 +97,8 @@ vec Force_Thrust(state r, double t)
     Ft = ZeroVec();
 
     thrust = r.m.thrust;
-    phi = radians(3.0);
+    //thrust = Interpolat1D(ThrustCurve(), t);
+    phi = radians(6.0);
     
     if (CurrentStage().mode == BURNING)
     {
@@ -101,7 +109,8 @@ vec Force_Thrust(state r, double t)
         Ft_ecef = EnuToEcef(Ft_enu, r);
         Ft = Ft_ecef;
         
-        if ( Norm(r.U) > 50.0 ) 
+        // Start Gravity turn in t seconds
+        if ( t > 10.0 ) 
         {
             velocityHat = UnitVec(r.U);
             
@@ -154,6 +163,14 @@ double KE(state r, double met)
 double PE(state r, double met)
 {
     return (G * Me * RocketMass(r, met))/Position(r) - (G * Me * RocketMass(r, met))/Re;
+}
+
+double MDot(state r, double met)
+{
+    double thrust = Norm(Force_Thrust(r, met));
+    double Isp = r.m.isp;
+    
+    return thrust / (g_0 * Isp);
 }
 
 double RocketMass(state r, double met)

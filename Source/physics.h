@@ -10,3 +10,4 @@ vec Force_Thrust(state r, double t);
 double KE(state r, double met);
 double PE(state r, double met);
 double RocketMass(state r, double met);
+double MDot(state r, double met);
