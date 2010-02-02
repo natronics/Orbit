@@ -4,6 +4,7 @@
 #define SEPARATED 3
 
 typedef struct {double i; double j; double k;} vec;
+typedef struct {double i; double j;} vec2;
 typedef struct {double fuelMass; double isp; double thrust;} motor;
 typedef struct {vec s; vec U; vec a; motor m; double met;} state;
 typedef struct {unsigned int stage; double emptyMass; 

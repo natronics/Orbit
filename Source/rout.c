@@ -21,7 +21,7 @@ void printHtmlFileFooter(FILE *out);
 void printHtmlImage(FILE *out, char *img);
 void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages);
 void printHtmlDetailDiv(FILE *out, Rocket_Stage stage);
-void makeLaunchMapPlt();
+void makeLaunchMapPlt(state burnout);
 void makeAltDownPlt(state apogee);
 void makeOverviewPlt(state apogee, state burnout);
 char nar(double impulse);
@@ -131,10 +131,7 @@ void PrintSimResult(Rocket_Stage stage)
     double burnTime = burnout.met - stage.initialState.met;
     
     printf("%s%16.2f %s\n", "\t        Burn Time: ", burnTime, "s");
-    //printf("%s\t   %s %s\n","\t          Burnout: ", burnoutTimeStringUtc, "[UTC]");
     printf("%s%16.2f %s\n", "\t Burnout Velocity: ", Velocity(burnout), "m/s");
-    printf("%s%16.2f %s\n", "\t Burnout Altitude: ", Altitude(burnout) / 1000.0, "km");
-    printf("%s%16.2f %s\n", "\tBurnout Downrange: ", Downrange(burnout) / 1000.0, "km");
     printf("\n");
 }
 
@@ -331,7 +328,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalFuelMass);
     fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketTotalStructureMass);
     fprintf(htmlOut, "        <td>&mdash;</td>\n");
-    fprintf(htmlOut, "        <td><span class=\"highlight\" title=\"GLOW - %0.2f tons\">%0.2f</span></td>\n", rocketTotalMass * 0.00110231131, rocketTotalMass);
+    fprintf(htmlOut, "        <td><span class=\"highlight\" title=\"GLOW - %0.0f lbs (%0.2f tons)\">%0.2f</span></td>\n", rocketTotalMass * 2.20462262, rocketTotalMass * 0.00110231131, rocketTotalMass);
     fprintf(htmlOut, "        <td>&mdash;</td>\n");
     fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
     fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
@@ -587,20 +584,19 @@ void MakePltFiles(Rocket_Stage finalStage)
 {
     state apogee = finalStage.apogeeState;
     state burnout = finalStage.burnoutState;
-    
-    printf("apogee: %0.2f", Altitude(apogee) / 1000.0);
-    printf("burnout: %0.2f", Altitude(burnout) / 1000.0);
-    makeLaunchMapPlt();
+
+    makeLaunchMapPlt(burnout);
     makeAltDownPlt(apogee);
     makeOverviewPlt(apogee, burnout);
 }
 
-void makeLaunchMapPlt()
+void makeLaunchMapPlt(state burnout)
 {
     FILE *pltOut = NULL;
     double lat0, lon0, lat1, lon1;
     double latLaunch, lonLaunch;
     state launchState = LaunchState();
+    double timeEnd = burnout.met + 600;
     
     latLaunch = degrees(latitude(launchState));
     lonLaunch = degrees(longitude(launchState));
@@ -621,6 +617,7 @@ void makeLaunchMapPlt()
     fprintf(pltOut, "reset\n\n");
     fprintf(pltOut, "set xrange[%0.1f:%0.1f]\n", lon0, lon1);
     fprintf(pltOut, "set yrange[%0.1f:%0.1f]\n\n", lat0, lat1);
+    fprintf(pltOut, "l = %0.0f\n", timeEnd * 2);
     fprintf(pltOut, "load \"./Output/Gnuplot/launchmap_base.plt\"\n");
     fprintf(pltOut, "#    EOF");
     
@@ -669,6 +666,7 @@ void makeOverviewPlt(state apogee, state burnout)
     double alt_apo = Altitude(apogee);
     double dr_burn = Downrange(burnout);
     double alt_burn = Altitude(burnout);
+    double timeEnd = burnout.met + 100;
     double aspect = 1.6283;
     
     double xrange, yrange;
@@ -701,6 +699,7 @@ void makeOverviewPlt(state apogee, state burnout)
     fprintf(pltOut, "reset\n\n");
     fprintf(pltOut, "set xrange[0:%0.1f]\n", xrange + 1);
     fprintf(pltOut, "set yrange[0:%0.1f]\n\n", yrange + 1);
+    fprintf(pltOut, "l = %0.0f\n", timeEnd * 2);
     fprintf(pltOut, "load \"./Output/Gnuplot/overview_base.plt\"\n");
     fprintf(pltOut, "set autoscale y\n");
     fprintf(pltOut, "load \"./Output/Gnuplot/overview_vel.accel_base.plt\"\n");

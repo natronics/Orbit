@@ -16,7 +16,7 @@ set xlabel "Downrange [km]"
 set grid lc rgb "#cccccc"
 
 plot "./Output/out-spentStages.dat" us ($18/1000.0):($17/1000.0) w lines linestyle 3, \
-"./Output/out-coast.dat" us ($18/1000.0):($17/1000.0) w lines linestyle 2, \
+"./Output/out-coast.dat" us ($18/1000.0):($17/1000.0) every ::::l w lines linestyle 2, \
 "./Output/out-burn.dat" us ($18/1000.0):($17/1000.0) w lines linestyle 1
 
 #    EOF

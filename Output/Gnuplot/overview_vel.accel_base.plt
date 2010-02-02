@@ -19,9 +19,9 @@ set y2label "Acceleration [g]"
 set xlabel "Downrange [km]"
 set grid lc rgb "#cccccc"
 
-plot "./Output/out-coast.dat" us ($18/1000.0):(Norm($9, $10, $11) / 9.8) w lines linestyle 4 axis x1y2, \
+plot "./Output/out-coast.dat" us ($18/1000.0):(Norm($9, $10, $11) / 9.8) every ::::l w lines linestyle 4 axis x1y2, \
 "./Output/out-burn.dat" us ($18/1000.0):(Norm($9, $10, $11) / 9.8) w lines linestyle 4 axis x1y2, \
-"./Output/out-coast.dat" us ($18/1000.0):(Norm($6, $7, $8)) every 10 w lines linestyle 2, \
-"./Output/out-burn.dat" us ($18/1000.0):(Norm($6, $7, $8)) every 10 w lines linestyle 1
+"./Output/out-coast.dat" us ($18/1000.0):(Norm($6, $7, $8)) every ::::l w lines linestyle 2, \
+"./Output/out-burn.dat" us ($18/1000.0):(Norm($6, $7, $8)) w lines linestyle 1
 
 #    EOF

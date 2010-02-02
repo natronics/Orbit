@@ -11,14 +11,14 @@
 #include "orbit.h"
 
 struct config_t cfg;                //Config File
-double beginTime;                   //In JD
+double beginTime;                   //Start time in JD
 float h;                            //Timestep
 double Jd;                          //Current time in Julian Date 
 double Met;                         //Current time in Mission Elapsed Time
 int numberOfStages;                 //Total number of stages
 double simulationRunTime;           //How long the simulation took in seconds
-double thrustCurve[6][2] = {{1,4},{2,5},{3,5},{4,4},{5,1},{6,0}};
 
+char *configFileName = "orbit.cfg"; //Default Config File Name
 FILE *outBurn;
 FILE *outCoast;
 FILE *outKml;
@@ -31,7 +31,9 @@ Rocket_Stage currentStage;          //The stage currently being simulated
 
 void printHelp();
 void printVersion();
-void readConfigFile(char *filename);
+void readCommandLineSwitches(int argc, char **argv);
+void readConfigFile();
+void initOutputFiles();
 Rocket_Stage run(Rocket_Stage stage);
 
 /**
@@ -39,67 +41,19 @@ Rocket_Stage run(Rocket_Stage stage);
  */
 int main(int argc, char **argv)
 {
-    char *file = "orbit.cfg";   //Default config file name
-    int i;
     clock_t start, end;         //For seeing how long the simulation takes
+    int i;
     
     /* Read switches */
-    /* Start at i = 1 to skip the command name. */
-    for (i = 1; i < argc; i++) 
-    {
-	    /* Check for a switch (leading "-"). */
-	    if (argv[i][0] == '-') 
-	    {
-	        /* Use the next character to decide what to do. */
-	        switch (argv[i][1]) 
-	        {
-		        case 'c':   // set config file name
-		            file = argv[i+1];
-				    break;
-				case 'h':   // print help
-				    printHelp();
-				    return 0;
-				    break;
-				case 'v' :  // version
-				    printVersion();
-				    return 0;
-				    break;
-		        default:	
-		            fprintf(stderr, "Unknown switch %s\n", argv[i]);
-	        }
-	    }
-    }
+    readCommandLineSwitches(argc, argv);
     
     /* Read the config file */
     /* reading the config file should populate all of the start time and 
      * rocket stucts, so we can use them below */
-    readConfigFile(file);
+    readConfigFile();
     
-    /* Output File handleing */
-    
-    // Try to open files
-    outBurn = fopen("Output/out-burn.dat", "w");
-    outCoast = fopen("Output/out-coast.dat", "w");
-    outKml = fopen("Output/out.kml", "w");
-    outForce = fopen("Output/out-force.dat", "w");
-    outSpent = fopen("Output/out-spentStages.dat", "w");
-    
-    // See if it worked
-    if (   outBurn == NULL 
-        || outCoast == NULL 
-        || outKml == NULL
-        || outForce == NULL 
-        || outSpent == NULL)
-    {
-        printf("File Handle error.");
-        exit(1);
-    }
-    
-    // Print Headers
-    PrintHeader(outBurn);
-    PrintHeader(outCoast);
-    PrintHeader(outSpent);
-    PrintKmlHeader(outKml);
+    /* Attempt to create Output files */
+    initOutputFiles();
     
     /* Begin Simulation */
     start = clock();
@@ -111,12 +65,14 @@ int main(int argc, char **argv)
     stages[0].initialState = LaunchState();
     stages[0].mode = BURNING;
     
-    /* Do it */
+    // Do it
     for(i = 0; i < numberOfStages; i++)
     {
-        //fprintf(outCoast, "100 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16  \n");
-        fprintf(outSpent, "\n");
+        /* This does all the work, returns a stage that has run throught the
+         * simulation
+         */
         stages[i] = run(stages[i]);
+
     
         if ((i + 1) < numberOfStages)
         {
@@ -130,7 +86,8 @@ int main(int argc, char **argv)
             Jd = Jd - SecondsToDecDay(backInTime);
         }
         fprintf(outBurn, "\n");
-        
+        fprintf(outCoast, "\n");
+        fprintf(outSpent, "\n");
         PrintSimResult(stages[i]);
     }
     
@@ -194,7 +151,8 @@ Rocket_Stage run(Rocket_Stage stage)
         if (stage.mode == INIT
             && simTime >= stage.description.ignitionDelay)
         {   
-            printf("Stage Ignition!\n");;
+            printf("Stage Ignition!\n");
+            fprintf(outCoast, "\n");
             stage.mode = BURNING;
         }
         if (stage.mode == BURNING && currentState.m.fuelMass < 0)
@@ -224,9 +182,9 @@ Rocket_Stage run(Rocket_Stage stage)
             break;
         }
         
+        ///TODO: Actually integrate this.
         if (mode == BURNING)
         {
-            //printf("%0.2f     %0.2f    %0.1f\n", currentState.m.fuelMass, MDot(currentState, Met) , Met);
             double mdot =  MDot(currentState, Met) * h;
             currentState.m.fuelMass -= mdot;
         }
@@ -244,9 +202,19 @@ Rocket_Stage run(Rocket_Stage stage)
         }
         
         // Print files no more often than every tenth of a second.
-        if ( (Met - lastTime) > 0.1 )
+        if ( (Met - lastTime) > 0.5 )
         {
            // PrintKmlLine(outKml, currentState);
+            if ( (longitude(currentState) < 0 && longitude(lastState) > 0)
+                || (longitude(currentState) > 0 && longitude(lastState) < 0)
+                )
+            
+            {
+                printf("Cross the line!\n");
+                fprintf(outBurn, "\n");
+                fprintf(outCoast, "\n");
+                fprintf(outSpent, "\n");
+            }
             switch (mode)
             {
                 case INIT:
@@ -284,7 +252,37 @@ Rocket_Stage run(Rocket_Stage stage)
     return stage;
 }
 
-void readConfigFile(char *filename)
+void readCommandLineSwitches(int argc, char **argv)
+{
+    int i;
+    /* Start at i = 1 to skip the command name. */
+    for (i = 1; i < argc; i++) 
+    {
+	    /* Check for a switch (leading "-"). */
+	    if (argv[i][0] == '-') 
+	    {
+	        /* Use the next character to decide what to do. */
+	        switch (argv[i][1]) 
+	        {
+		        case 'c':   // set config file name
+		            configFileName = argv[i+1];
+				    break;
+				case 'h':   // print help
+				    printHelp();
+				    exit(0);
+				    break;
+				case 'v' :  // version
+				    printVersion();
+				    exit(0);
+				    break;
+		        default:	
+		            fprintf(stderr, "Unknown switch %s\n", argv[i]);
+	        }
+	    }
+    }
+}
+
+void readConfigFile()
 {
     int numOfStages;
     int i;
@@ -293,9 +291,9 @@ void readConfigFile(char *filename)
     config_init(&cfg);
     
     /* Load the file */
-    if (!config_read_file(&cfg, filename))
+    if (!config_read_file(&cfg, configFileName))
     {
-        printf("failed config_read_file \"%s\"\n", filename);
+        printf("failed config_read_file \"%s\"\n", configFileName);
         exit(1);
     }
     else
@@ -394,6 +392,33 @@ void readConfigFile(char *filename)
     }// End config file read if
 }
 
+void initOutputFiles()
+{
+    // Try to open files
+    outBurn = fopen("Output/out-burn.dat", "w");
+    outCoast = fopen("Output/out-coast.dat", "w");
+    outKml = fopen("Output/out.kml", "w");
+    outForce = fopen("Output/out-force.dat", "w");
+    outSpent = fopen("Output/out-spentStages.dat", "w");
+    
+    // See if it worked
+    if (   outBurn == NULL 
+        || outCoast == NULL 
+        || outKml == NULL
+        || outForce == NULL 
+        || outSpent == NULL)
+    {
+        printf("File Handle error.");
+        exit(1);
+    }
+    
+    // Print Headers
+    PrintHeader(outBurn);
+    PrintHeader(outCoast);
+    PrintHeader(outSpent);
+    PrintKmlHeader(outKml);
+}
+
 state LaunchState()
 {
     return launchState;
@@ -437,11 +462,6 @@ void printHelp()
     printf("\n");
 }
 
-double *ThrustCurve()
-{
-    return NULL;
-    //return thrustCurve;
-}
 
 void printVersion()
 {
