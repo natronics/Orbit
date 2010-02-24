@@ -8,12 +8,12 @@
 #define ERR 1.0e-6
 #define DOF 3
 
-state updateState(state r, int previousStep, double point);
-void initilize(state r);
-void evalSecondDeriv(state r, double t);
-void evalFirstDeriv(state r, double t);
-state setFirstDeriv(state r, double *firstDerivative);
-state setFunction(state r, double *function);
+static state updateState(state r, int previousStep, double point);
+static void initilize(state r);
+static void evalSecondDeriv(state r, double t);
+static void evalFirstDeriv(state r, double t);
+static state setFirstDeriv(state r, double *firstDerivative);
+static state setFunction(state r, double *function);
 
 double function_n[DOF];
 double firstDeriv_n[DOF];
@@ -132,7 +132,7 @@ state rk4(state r, float h)
  * BEGIN Setting up Degree of Freedom mapping
  ******************************************************************************/
 
-void initilize(state r)
+static void initilize(state r)
 {
     function_n[0] = r.s.i;
     function_n[1] = r.s.j;
@@ -143,7 +143,7 @@ void initilize(state r)
     firstDeriv_n[2] = r.U.k;
 }
 
-state setFirstDeriv(state r, double *firstDerivative)
+static state setFirstDeriv(state r, double *firstDerivative)
 {
     r.U.i = firstDerivative[0];
     r.U.j = firstDerivative[1];
@@ -152,7 +152,7 @@ state setFirstDeriv(state r, double *firstDerivative)
     return r;
 }
 
-state setFunction(state r, double *function)
+static state setFunction(state r, double *function)
 {
     r.s.i = function[0];
     r.s.j = function[1];
@@ -161,7 +161,7 @@ state setFunction(state r, double *function)
     return r;
 }
 
-void evalSecondDeriv(state r, double t)
+static void evalSecondDeriv(state r, double t)
 {
     vec accel = LinearAcceleration(r, t);
     secondDeriv[0] = accel.i;
@@ -169,7 +169,7 @@ void evalSecondDeriv(state r, double t)
     secondDeriv[2] = accel.k;
 }
 
-void evalFirstDeriv(state r, double t)
+static void evalFirstDeriv(state r, double t)
 {
     firstDeriv[0] = r.U.i;
     firstDeriv[1] = r.U.j;
@@ -180,7 +180,7 @@ void evalFirstDeriv(state r, double t)
  * END Setting up Degree of Freedom mapping
  ******************************************************************************/
 
-state updateState(state r, int previousStep, double point)
+static state updateState(state r, int previousStep, double point)
 {
     double firstDerivative[DOF];
     double function[DOF];

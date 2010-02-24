@@ -158,6 +158,8 @@ Rocket_Stage run(Rocket_Stage stage)
         if (stage.mode == BURNING && currentState.m.fuelMass < 0)
         {
             printf("Burnout!\n");
+            PrintStateLine(outBurn, Jd, lastState);
+            PrintStateLine(outCoast, Jd, currentState);
             stage.mode = COASING;
             stage.burnoutState = lastState;
             burnoutTime = Met;
@@ -378,6 +380,10 @@ void readConfigFile()
                 stages[i].description = desc;
                 stages[i].initialState = initialState;
                 stages[i].currentState = initialState;    
+                stages[i].burnoutState = initialState;    
+                stages[i].separationState = initialState;    
+                stages[i].apogeeState = initialState;    
+                stages[i].splashdownState = initialState;    
                 stages[i].mode = INIT;
             }// End Stages Loop
                         

@@ -9,8 +9,8 @@
 double currentMass;
 
 vec force_Gravity(state r);
-double rho(double h);
-double zTemperature(double h);
+static double rho(double h);
+static double zTemperature(double h);
 
 vec LinearAcceleration(state r, double t)
 {
@@ -123,7 +123,7 @@ vec Force_Thrust(state r, double t)
     return Ft;
 }
 
-double rho(double h)
+static double rho(double h)
 {
     double p, T, rho, R = 287.05;
     
@@ -138,7 +138,7 @@ double rho(double h)
     return 0.0;
 }
 
-double zTemperature(double h)
+static double zTemperature(double h)
 {
     if (h < 11.019e3)
         return -0.0065*h + 15.0;

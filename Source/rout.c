@@ -20,10 +20,14 @@ void printHtmlHeader(FILE *out, char *header);
 void printHtmlFileFooter(FILE *out);
 void printHtmlImage(FILE *out, char *img);
 void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages);
-void printHtmlDetailDiv(FILE *out, Rocket_Stage stage);
+void printHtmlDetailDiv(FILE *out, FILE *pltOut, Rocket_Stage stage);
 void makeLaunchMapPlt(state burnout);
+void makeLaunch_3dPlt();
 void makeAltDownPlt(state apogee);
 void makeOverviewPlt(state apogee, state burnout);
+void makeStageBurnPltHeader(FILE *pltOut);
+void makeStageBurnPltSection(FILE *pltOut, state ignition, state burnout, int stage);
+void makeStageBurnPltFooter(FILE *pltOut);
 char nar(double impulse);
 
 void PrintStateLine(FILE *outfile, double jd, state r)
@@ -235,15 +239,17 @@ void PrintHtmlResult(Rocket_Stage *stages)
     
     // Start with when it was run
     printHtmlHeader(htmlOut, "Run Details");
+    fprintf(htmlOut, "  <div>\n");
     fprintf(htmlOut, "  <p>Simulation run on %s and took %0.2f seconds</p>\n"
                 ,   runTimeStringLoc
                 ,   RunTime());   
+    fprintf(htmlOut, "  </div>\n");
     
     // Liftoff Mass Configuration Table
     printHtmlHeader(htmlOut, "Rocket Configuration");
+    fprintf(htmlOut, "  <div>\n");
 
-
-    fprintf(htmlOut, "  <table class=\"data_table\" >\n");
+    fprintf(htmlOut, "  <table class=\"data_table\" id=\"physical_overview\">\n");
     fprintf(htmlOut, "    <thead>\n");
     fprintf(htmlOut, "      <tr>\n");
     fprintf(htmlOut, "        <th>Stage [#]</th>\n");
@@ -355,9 +361,13 @@ void PrintHtmlResult(Rocket_Stage *stages)
                             , degrees(longitude(launchState)));
     fprintf(htmlOut, "    </tr>\n");
     fprintf(htmlOut, "  </table>\n");
-   
+    fprintf(htmlOut, "  </div>\n");
+    
+    //Overview
     printHtmlHeader(htmlOut, "Flight Overview");
-    fprintf(htmlOut, "  <table class=\"data_table\" >\n");
+    fprintf(htmlOut, "  <div>\n");
+    
+    fprintf(htmlOut, "  <table class=\"data_table\" id=\"flight_overview\" >\n");
     fprintf(htmlOut, "    <thead>\n");
     fprintf(htmlOut, "      <tr>\n");
     fprintf(htmlOut, "        <th>Time [MET]</th>\n");
@@ -370,17 +380,31 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "    </thead>\n");
     fprintf(htmlOut, "    <tbody>\n");
 
+
     printHtmlOverviewTable(htmlOut, stages, numOfStages);
-    
+    fprintf(htmlOut, "  </div>\n");
     fprintf(htmlOut, "  <hr />\n");
     
+    FILE *pltOut = NULL;
+    pltOut = fopen("Output/Gnuplot/tmp/burn.plt", "w");
+    
+    if (pltOut != NULL)
+    {
+        makeStageBurnPltHeader(pltOut);
+    }
     for (i = 0; i < numOfStages; i++)
     {
-        printHtmlDetailDiv(htmlOut, stages[i]);
+        printHtmlDetailDiv(htmlOut, pltOut, stages[i]);
+    }
+    if (pltOut != NULL)
+    {
+        makeStageBurnPltFooter(pltOut);
+        fclose(pltOut);
     }
     
     printHtmlHeader(htmlOut, "Launch Map");
     printHtmlImage(htmlOut, "launchmap.png");
+    printHtmlImage(htmlOut, "launch-3d.png");
     
     printHtmlHeader(htmlOut, "World Map");
     printHtmlImage(htmlOut, "worldmap.png");
@@ -396,6 +420,26 @@ void printHtmlFileHeader(FILE *out)
     fprintf(out, "<head>\n");
     fprintf(out, "  <title>Rocket Flight Analysis</title>\n");
     fprintf(out, "  <link href=\"css/style.css\" rel=\"stylesheet\" type=\"text/css\" media=\"all\" />\n");
+    fprintf(out, "  <link href=\"css/tablestyle.css\" rel=\"stylesheet\" type=\"text/css\" media=\"all\" />\n");
+    fprintf(out, "  <script type=\"text/javascript\" src=\"js/jquery-1.4.2.min.js\"></script>\n");
+    fprintf(out, "  <script type=\"text/javascript\" src=\"js/jquery.tablesorter.min.js\"></script>\n");
+    fprintf(out, "  <script type=\"text/javascript\">\n");
+    fprintf(out, "    $(document).ready(function() \n");
+    fprintf(out, "      { \n");
+    fprintf(out, "          $(\"#physical_overview\").tablesorter( {sortList: [[0,0]]} );\n");
+    fprintf(out, "          $(\"#flight_overview\").tablesorter( {sortList: [[0,0]]} );\n");
+    fprintf(out, "          $(\"h2\").click(function () {\n");
+    fprintf(out, "            box = $(this).next();\n");
+    fprintf(out, "            if (box.is(\":hidden\")) {\n");
+    fprintf(out, "              box.slideDown(\"fast\");\n");
+    fprintf(out, "            } else {\n");
+    fprintf(out, "              box.slideUp(\"fast\");\n");
+    fprintf(out, "            }\n");
+    fprintf(out, "            return true;\n");
+    fprintf(out, "         });\n");
+    fprintf(out, "      } \n");
+    fprintf(out, "  ); \n");
+    fprintf(out, "  </script>\n");
     fprintf(out, "</head>\n");
     fprintf(out, "<body>\n");
     fprintf(out, "  <div id=\"header\">\n");
@@ -442,27 +486,30 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
         //Stage Light
         fprintf(out, "      <tr>\n");
         fprintf(out, "        <td>%s</td>\n", igniteTime);
-        fprintf(out, "        <td><em>Stage Ignition</em></td>\n");
+        fprintf(out, "        <td><em>Ignition</em></td>\n");
         fprintf(out, "        <td>%d</td>\n", i + 1);
         fprintf(out, "        <td>%0.2f</td>\n", Altitude(ignition) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Downrange(ignition) / 1000.0);
         fprintf(out, "        <td>%0.2f</td>\n", Velocity(ignition));
         fprintf(out, "      </tr>\n");
         
-        //Burnout
-        fprintf(out, "      <tr>\n");
-        fprintf(out, "        <td>%s</td>\n", burnoutTime);
-        fprintf(out, "        <td><em>Burnout</em></td>\n");
-        fprintf(out, "        <td>%d</td>\n", i + 1);
-        fprintf(out, "        <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
-        if ((i + 1) == numOfStages)
-            fprintf(out, "        <td><span class=\"highlight\">%0.2f</span></td>\n", Velocity(burnout));
-        else
-            fprintf(out, "        <td>%0.2f</td>\n", Velocity(burnout));
-        fprintf(out, "      </tr>\n");
+        if (burnoutTime > 0)
+        {
+            //Burnout
+            fprintf(out, "      <tr>\n");
+            fprintf(out, "        <td>%s</td>\n", burnoutTime);
+            fprintf(out, "        <td><em>Burnout</em></td>\n");
+            fprintf(out, "        <td>%d</td>\n", i + 1);
+            fprintf(out, "        <td>%0.2f</td>\n", Altitude(burnout) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
+            if ((i + 1) == numOfStages)
+                fprintf(out, "        <td><span class=\"highlight\">%0.2f</span></td>\n", Velocity(burnout));
+            else
+                fprintf(out, "        <td>%0.2f</td>\n", Velocity(burnout));
+            fprintf(out, "      </tr>\n");
+        }
         
-        if (separation.met > 0.01)
+        if (separation.met > 0)
         {
             //Separation
             fprintf(out, "      <tr>\n");
@@ -475,25 +522,31 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
             fprintf(out, "      </tr>\n");
         }
         
-        //Apogee
-        fprintf(out, "      <tr>\n");
-        fprintf(out, "        <td>%s</td>\n", apogeeTime);
-        fprintf(out, "        <td><em>Apogee</em></td>\n");
-        fprintf(out, "        <td>%d</td>\n", i + 1);
-        fprintf(out, "        <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Velocity(apogee));
-        fprintf(out, "      </tr>\n");
+        if (apogee.met > 0)
+        {
+            //Apogee
+            fprintf(out, "      <tr>\n");
+            fprintf(out, "        <td>%s</td>\n", apogeeTime);
+            fprintf(out, "        <td><em>Apogee</em></td>\n");
+            fprintf(out, "        <td>%d</td>\n", i + 1);
+            fprintf(out, "        <td>%0.2f</td>\n", Altitude(apogee) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Downrange(apogee) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Velocity(apogee));
+            fprintf(out, "      </tr>\n");
+        }
          
-        //Splashdown
-        fprintf(out, "      <tr>\n");
-        fprintf(out, "        <td>%s</td>\n", splashdownTime);
-        fprintf(out, "        <td><em>Splashdown</em></td>\n");
-        fprintf(out, "        <td>%d</td>\n", i + 1);
-        fprintf(out, "        <td>%0.2f</td>\n", Altitude(splashdown) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Downrange(splashdown) / 1000.0);
-        fprintf(out, "        <td>%0.2f</td>\n", Velocity(splashdown));
-        fprintf(out, "      </tr>\n");
+        if (splashdown.met > 0)
+        {
+            //Splashdown
+            fprintf(out, "      <tr>\n");
+            fprintf(out, "        <td>%s</td>\n", splashdownTime);
+            fprintf(out, "        <td><em>Splashdown</em></td>\n");
+            fprintf(out, "        <td>%d</td>\n", i + 1);
+            fprintf(out, "        <td>%0.2f</td>\n", Altitude(splashdown) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Downrange(splashdown) / 1000.0);
+            fprintf(out, "        <td>%0.2f</td>\n", Velocity(splashdown));
+            fprintf(out, "      </tr>\n");
+        }
     }
     fprintf(out, "    </tbody>\n");
     fprintf(out, "  </table>\n");
@@ -501,10 +554,12 @@ void printHtmlOverviewTable(FILE *out, Rocket_Stage *stages, int numOfStages)
     printHtmlImage(out, "overview.png");
     printHtmlImage(out, "overview.vel.accel.png");
 }
-void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
+
+void printHtmlDetailDiv(FILE *out, FILE *pltOut, Rocket_Stage stage)
 {
+    int stageNum = stage.description.stage + 1;
     fprintf(out, "<div class=\"stage_detail\">\n");
-    fprintf(out, "<h2>Stage %d Detail</h2>\n", stage.description.stage + 1);
+    fprintf(out, "<h2>Stage %d Detail</h2>\n", stageNum);
 
     state burnout    = stage.burnoutState;
     state apogee     = stage.apogeeState;
@@ -529,9 +584,13 @@ void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
     double coastTime = apogee.met - burnout.met;
     double burnTime = burnout.met - ignition.met;
     burnTime -= stage.description.ignitionDelay;
+    
+    
+    if (pltOut != NULL)
+        makeStageBurnPltSection(pltOut, ignition, burnout, stageNum);
 
     // Burnout
-    fprintf(out, "  <h3>Burnout</h3>\n");
+    fprintf(out, "  <h3>Burn</h3>\n");
     fprintf(out, "  <table class=\"data_table\" >\n");
     fprintf(out, "    <thead>\n");
     fprintf(out, "      <th>Burnout Time [UTC]</th>\n");
@@ -548,6 +607,8 @@ void printHtmlDetailDiv(FILE *out, Rocket_Stage stage)
     fprintf(out, "      <td>%0.2f</td>\n", Downrange(burnout) / 1000.0);
     fprintf(out, "    </tr>\n");
     fprintf(out, "  </table>\n");
+    
+    fprintf(out, "<img src=\"burnout_%d.png\" />", stageNum);
     
     // Apogee
     fprintf(out, "  <h3>Apogee</h3>\n");
@@ -586,6 +647,7 @@ void MakePltFiles(Rocket_Stage finalStage)
     state burnout = finalStage.burnoutState;
 
     makeLaunchMapPlt(burnout);
+    makeLaunch_3dPlt();
     makeAltDownPlt(apogee);
     makeOverviewPlt(apogee, burnout);
 }
@@ -621,6 +683,38 @@ void makeLaunchMapPlt(state burnout)
     fprintf(pltOut, "load \"./Output/Gnuplot/launchmap_base.plt\"\n");
     fprintf(pltOut, "#    EOF");
     
+    fclose(pltOut);
+}
+
+void makeLaunch_3dPlt()
+{
+    FILE *pltOut;
+    double lat0, lon0, lat1, lon1;
+    double latLaunch, lonLaunch;
+    state launchState = LaunchState();
+    latLaunch = degrees(latitude(launchState));
+    lonLaunch = degrees(longitude(launchState));
+    
+    pltOut = fopen("Output/Gnuplot/tmp/launch-3d.plt", "w");
+    
+    if (pltOut == NULL)
+    {
+        return;
+    }
+    
+    lat0 = latLaunch - 30.0;
+    lat1 = latLaunch + 30.0;
+    lon0 = lonLaunch - 20.0;
+    lon1 = lonLaunch + 40.0;
+    
+    fprintf(pltOut, "#!/usr/bin/gnuplot -persist\n\n");
+    fprintf(pltOut, "reset\n\n");
+    fprintf(pltOut, "set xrange[%0.1f:%0.1f]\n", lon0, lon1);
+    fprintf(pltOut, "set yrange[%0.1f:%0.1f]\n\n", lat0, lat1);
+    //fprintf(pltOut, "l = %0.0f\n", timeEnd * 2);
+    fprintf(pltOut, "load \"./Output/Gnuplot/launch-3d_base.plt\"\n");
+    fprintf(pltOut, "#    EOF");
+
     fclose(pltOut);
 }
 
@@ -688,8 +782,6 @@ void makeOverviewPlt(state apogee, state burnout)
         yrange = alt / 1000.0;
     }
     
-    //range = 400 * aspect;
-    //yrange = 400;
     pltOut = fopen("Output/Gnuplot/tmp/overview.plt", "w");
     
     if (pltOut == NULL)
@@ -707,6 +799,35 @@ void makeOverviewPlt(state apogee, state burnout)
     fprintf(pltOut, "#    EOF");
 
     fclose(pltOut);
+}
+
+void makeStageBurnPltHeader(FILE *pltOut)
+{
+    fprintf(pltOut, "#!/usr/bin/gnuplot -persist\n\n");
+    fprintf(pltOut, "reset\n\n");
+
+}
+
+
+void makeStageBurnPltSection(FILE *pltOut, state ignition, state burnout, int stage)
+{
+    float xrange1, xrange2;
+    float ignintionTime = ignition.met;
+    float burnoutTime = burnout.met;
+    char outName[256];
+    
+    sprintf(outName, "Output/burnout_%d.png", stage);
+    
+    xrange1 = ignintionTime;
+    xrange2 = burnoutTime;
+    
+    fprintf(pltOut, "set xrange[%0.1f:%0.1f]\n", xrange1, xrange2);
+    fprintf(pltOut, "set out \"%s\"\n\n", outName);
+    fprintf(pltOut, "load \"./Output/Gnuplot/burn_base.plt\"\n\n");}
+
+void makeStageBurnPltFooter(FILE *pltOut)
+{
+    fprintf(pltOut, "#EOF");
 }
 
 void DumpState(state dump)

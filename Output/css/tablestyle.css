@@ -1,0 +1,14 @@
+table.data_table thead tr .headerSortUp {
+	background-image: url(asc.gif);
+	background-color: #eef0f3;
+}
+table.data_table thead tr .headerSortDown {
+	background-image: url(desc.gif);
+	background-color: #eef0f3;
+}	
+
+th.header {    
+    cursor: pointer; 
+    background-repeat: no-repeat; 
+    background-position: center right;
+}

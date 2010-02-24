@@ -1,37 +1,42 @@
-#!/usr/bin/gnuplot -persist
-
-reset
 unset key
-set parametric
-set urange [ 0.00000 : 360.000 ] noreverse nowriteback
-set vrange [ -90.0000 : 90.0000 ] noreverse nowriteback
-set samples 100, 100
-set isosamples 48, 24
-set angles degrees
-set hidden3d
+set hidden
 
-unset border
-unset tics
-
-set style line 1 lt 1 lw 0.3 lc rgb "#77aa88"
-set style line 2 lt 1 lw 0.3 lc rgb "#77bbcc"
-set style line 3 lt 3 lw 0.3 lc rgb "#555555"
+set style line 1 lt 1 lw 0.6 lc rgb "#77aa88"
+set style line 2 lt 1 lw 0.6 lc rgb "#77bbcc"
+set style line 3 lt 0 lw 0.6 lc rgb "#aaaaaa"
 set style line 4 lt 1 lw 0.3 lc rgb "#bbcccc"
-set style line 5 lt 1 lw 2 lc rgb "#ff0000" pt 4 ps 0.5
-set style line 6 lt 1 lw 2 lc rgb "#eeee22" pt 4 ps 0.5
+set style line 5 lt 1 lw 3 lc rgb "#dd2222"
+set style line 6 lt 1 lw 3 lc rgb "#000000"
+set style line 7 lt 0 lw 1 pt 2 ps 2 lc rgb "#aa22ff"
+set style line 8 lt 0 lw 1 lc rgb "#4444dd"
+set style line 9 lt 1 lw 1 lc rgb "#999999"
 
-a = 6371.0
+set view 70, 300, 6.1, 1.4
 
-f(x,y) = a * cos(y) * sin(90 - x)
-g(x,y) = a * sin(y) * sin(90 - x)
-h(x,y) = a * cos(90 - x) 
+lonTrace(x,z) = x + (z / 100000)
+latTrace(y,z) = y + (z / 100000)
 
-set view 134, 333, 1.5, 1.0
+lon1Trace(x,z) = x - (z / 100000)
+lat1Trace(y,z) = y - (z / 100000)
 
-splot a*cos(u)*cos(v),a*sin(u)*cos(v),a*sin(v) linestyle 4, \
-"../MapData/world.map" every 100 us (f($1,$2)):(g($1,$2)):(h($1,$2)) w lines linestyle 1, \
-"../MapData/rivers.map" every 150 us (f($1,$2)):(g($1,$2)):(h($1,$2)) w lines linestyle 2, \
-"../MapData/countries-us.map" every 40 us (f($1,$2)):(g($1,$2)):(h($1,$2)) w lines linestyle 3, \
-"../out-burn.dat" every 110 us ($3/1000.0):($4/1000.0):($5/1000.0) w lines linestyle 5 ,\
-"../out-coast.dat" every 110 us ($3/1000.0):($4/1000.0):($5/1000.0) w lines linestyle 6
+set term png font "/usr/share/fonts/truetype/Helvetica/Helvetica LT.ttf" 10 truecolor size 1100, 1100
+set out "Output/launch-3d.png"
 
+
+set zrange[0:6000]
+
+splot "./Output/MapData/world.map" us 2:1:(0) every 10 w lines linestyle 1, \
+"./Output/MapData/rivers.map" us 2:1:(0) every 10 w lines linestyle 2, \
+"./Output/MapData/countries-us.map" us 2:1:(0) every 10 w lines linestyle 9, \
+(0) linestyle 3, \
+"./Output/out-coast.dat" us 16:15:($17/1000) every ::::1000 w lines linestyle 6, \
+"./Output/out-spentStages.dat" us 16:15:($17/1000) w lines linestyle 3, \
+"./Output/out-burn.dat" us 16:15:($17/1000) w lines linestyle 5, \
+"./Output/out-coast.dat" us 16:15:(0) every ::::1000 w lines linestyle 7, \
+"./Output/out-burn.dat" us 16:15:(0) w lines linestyle 7, \
+"./Output/out-burn.dat" us (lonTrace($16,$17)):(latTrace($15, $17)):(0) w lines linestyle 8, \
+"./Output/out-coast.dat" us (lonTrace($16,$17)):(latTrace($15, $17)):(0) every ::::1000 w lines linestyle 8, \
+"./Output/out-burn.dat" us (lon1Trace($16,$17)):(lat1Trace($15, $17)):(0) w lines linestyle 8, \
+"./Output/out-coast.dat" us (lon1Trace($16,$17)):(lat1Trace($15, $17)):(0) every ::::1000 w lines linestyle 8
+
+# EOF
