@@ -202,31 +202,38 @@ void SecondsToHmsString(double seconds, char *buffer)
     sprintf(buffer, "%0.0f:%02.0f:%04.1f", hours, minutes, seconds);
 }
 
-double Interpolat1D(double *sample, double value)
+double Interpolat1D(vec2 *sample, double value, int dataLength)
 {
     double answer = 0;
-    double n, n1, a_n, a_n1;
-    int i, j;
+    double x_n, x_n1, y_n, y_n1;
+    int i;
     
-    for (i = 0; i < 5; i++)
+    // Extrapolate?
+    if (sample[0].i > value)
+        return 0;
+    if (sample[dataLength - 1].i < value)
+        return 0;
+        
+    for (i = 0; i < dataLength; i++)
     {
-        //double *values = sample[i];
-       //if (values[0] > value)
+        // Nailed it
+        if (sample[i].i == value)
+            return sample[i].j;
+            
+        if (sample[i].i > value)
             break;
     }
     
-    if (i > 0)
-    {
-        //n = sample[i - 1][0];
-        //n1 = sample[i][0];
-        //a_n = sample[i - 1][1];
-        //a_n1 = sample[i][1];
-        
-        double a = (a_n1 - a_n) / (n1 - n);
-        double b = a_n - (a * n);
-        
-        answer = a*value + b;
-    }
+    x_n = sample[i - 1].i;
+    y_n = sample[i - 1].j;
     
+    x_n1 = sample[i].i;
+    y_n1 = sample[i].j;
+    
+    double a = (y_n1 - y_n) / (x_n1 - x_n);
+    double b = y_n - (a * x_n);
+    
+    answer = a * value + b;
+
     return answer;
 }

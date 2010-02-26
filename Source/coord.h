@@ -20,4 +20,4 @@ time_t JdToUnixTime(double JD);
 double SecondsToDecDay(double seconds);
 double DecDayToSeconds(double decDay);
 void SecondsToHmsString(double seconds, char *buffer);
-double Interpolat1D(double *sample, double value);
+double Interpolat1D(vec2 *sample, double value, int dataLength);

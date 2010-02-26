@@ -35,6 +35,9 @@ void readCommandLineSwitches(int argc, char **argv);
 void readConfigFile();
 void initOutputFiles();
 Rocket_Stage run(Rocket_Stage stage);
+static int thrustCurve_noFile(vec2 *curve, double thrust, double fuel, double isp);
+static int thrustCurve_File(vec2 **curve, const char *fileName, double thrust);
+double initFuelMass(Rocket_Stage stage);
 
 /**
  * ToOrbit Sim
@@ -63,6 +66,7 @@ int main(int argc, char **argv)
     Jd = BeginTime();
     
     stages[0].initialState = LaunchState();
+    stages[0].initialState.fuelMass = initFuelMass(stages[0]);
     stages[0].mode = BURNING;
     
     // Do it
@@ -71,9 +75,12 @@ int main(int argc, char **argv)
         /* This does all the work, returns a stage that has run throught the
          * simulation
          */
+        currentStage = stages[i];
         stages[i] = run(stages[i]);
 
-    
+        /* If this is not the last stage then prime the next stage
+         * with the data from when the last stage separated
+         */
         if ((i + 1) < numberOfStages)
         {
             state nextStageInitialState = stages[i].separationState;
@@ -81,13 +88,16 @@ int main(int argc, char **argv)
             stages[i + 1].initialState.U = nextStageInitialState.U;
             stages[i + 1].initialState.a = LinearAcceleration(stages[i + 1].initialState, Met);
             stages[i + 1].initialState.met = nextStageInitialState.met;
+            // Go back in time to when the stages separated
             double backInTime = Met - nextStageInitialState.met;
             Met = nextStageInitialState.met;
             Jd = Jd - SecondsToDecDay(backInTime);
         }
+        // Print blank lines in the files to separate the stages in gnuplot
         fprintf(outBurn, "\n");
         fprintf(outCoast, "\n");
         fprintf(outSpent, "\n");
+        // Show some output on the screen
         PrintSimResult(stages[i]);
     }
     
@@ -141,7 +151,7 @@ Rocket_Stage run(Rocket_Stage stage)
         notLastStage = 0;
     }
     
-    /* Run the simulation until the stage hits the ground or it's taking too
+    /* Run the simulation until the stage hits the ground or it's takeing too
      * long. whichever comes first. 
      */
     for (simTime = 0; simTime < 10000; simTime += h)
@@ -155,7 +165,7 @@ Rocket_Stage run(Rocket_Stage stage)
             fprintf(outCoast, "\n");
             stage.mode = BURNING;
         }
-        if (stage.mode == BURNING && currentState.m.fuelMass < 0)
+        if (stage.mode == BURNING && currentState.fuelMass < 0)
         {
             printf("Burnout!\n");
             PrintStateLine(outBurn, Jd, lastState);
@@ -187,8 +197,10 @@ Rocket_Stage run(Rocket_Stage stage)
         ///TODO: Actually integrate this.
         if (mode == BURNING)
         {
-            double mdot =  MDot(currentState, Met) * h;
-            currentState.m.fuelMass -= mdot;
+            double fuelLoss =  MDot(currentState, Met) * h;
+            currentState.fuelMass -= fuelLoss;
+            if (Met < 10)
+                printf("%0.3f\t%0.2f\t%0.1f\n", Met, fuelLoss, currentState.fuelMass);
         }
         
         if (mode > BURNING) // Wait some time, then separate
@@ -221,12 +233,15 @@ Rocket_Stage run(Rocket_Stage stage)
             {
                 case INIT:
                     PrintStateLine(outCoast, Jd, currentState);
+                    PrintKmlLine(outKml, currentState);
                     break;
                 case BURNING:
                     PrintStateLine(outBurn, Jd, currentState);
+                    PrintKmlLine(outKml, currentState);
                     break;
                 case COASING:
                     PrintStateLine(outCoast, Jd, currentState);
+                    PrintKmlLine(outKml, currentState);
                     break;
                 case SEPARATED:
                     PrintStateLine(outSpent, Jd, currentState);
@@ -245,7 +260,6 @@ Rocket_Stage run(Rocket_Stage stage)
         Jd += SecondsToDecDay(h);                       //Increment time
         Met += h;
         currentState.met = Met;
-        currentStage = stage;
     }
     
     if (stage.separationState.met == 0.0)
@@ -287,10 +301,18 @@ void readCommandLineSwitches(int argc, char **argv)
 void readConfigFile()
 {
     int numOfStages;
-    int i;
+    int i, j, k;
     
     /* Initialize the configuration */
     config_init(&cfg);
+    
+    // Dummy initial state
+    state initialState;
+    initialState.s = ZeroVec();
+    initialState.U = ZeroVec();
+    initialState.a = ZeroVec();
+    initialState.fuelMass = 0;
+    initialState.met = 0;
     
     /* Load the file */
     if (!config_read_file(&cfg, configFileName))
@@ -298,104 +320,247 @@ void readConfigFile()
         printf("failed config_read_file \"%s\"\n", configFileName);
         exit(1);
     }
-    else
+    
+    /* Config file layout */
+    config_setting_t *configTStep           = NULL;
+    config_setting_t *configLaunchPosition  = NULL;
+    config_setting_t *configLaunchTime      = NULL;
+    config_setting_t *configStages          = NULL;
+    
+    configTStep             = config_lookup(&cfg, "timeStep");
+    configLaunchPosition    = config_lookup(&cfg, "launch.position");
+    configLaunchTime        = config_lookup(&cfg, "launch.juliandate");
+    configStages            = config_lookup(&cfg, "stages");
+
+    /* Make sure values are found in the config file */
+    if (    !configTStep 
+         || !configLaunchPosition 
+         || !configLaunchTime 
+         || !configStages) 
     {
-        /* Config file layout */
-        config_setting_t *configTStep           = NULL;
-        config_setting_t *configLaunchPosition  = NULL;
-        config_setting_t *configLaunchTime      = NULL;
-        config_setting_t *configStages          = NULL;
-        
-        configTStep             = config_lookup(&cfg, "timeStep");
-        configLaunchPosition    = config_lookup(&cfg, "launch.position");
-        configLaunchTime        = config_lookup(&cfg, "launch.juliandate");
-        configStages            = config_lookup(&cfg, "stages");
-	
-	    /* Make sure values are found in the config file */
-        if (    !configTStep 
-             || !configLaunchPosition 
-             || !configLaunchTime 
-             || !configStages) 
+        printf("failed config_lookup\n");
+        exit(1);
+    }
+
+    // Time Step
+    h = config_setting_get_float(configTStep);
+    
+    // Launch Position
+    double lat = (double) config_setting_get_float_elem(configLaunchPosition, 0);
+    double lon = (double) config_setting_get_float_elem(configLaunchPosition, 1);
+    double alt = (double) config_setting_get_float_elem(configLaunchPosition, 2);
+    
+    // Time
+    beginTime = (double) config_setting_get_float(configLaunchTime);
+    
+    /* Stages */
+    // Allocate Memory
+    numOfStages = config_setting_length(configStages);
+    stages = (Rocket_Stage *) malloc(numOfStages * sizeof(Rocket_Stage));
+    numberOfStages = numOfStages;   //GlobalVariable
+
+    // Loop through stages in config file
+    for (i = 0; i < numOfStages; i++)
+    {
+        // Get one stage
+        config_setting_t *stage = NULL;
+        stage =  config_setting_get_elem(configStages, i);
+        if (stage == NULL)
         {
-            printf("failed config_lookup\n");
+            printf("Stage %d broke", i + 1);
             exit(1);
         }
-        else
+        
+        double emptyMass    = (double) config_setting_get_float_elem(stage, 0);
+        double ingnition    = (double) config_setting_get_float_elem(stage, 1);
+        double stageing     = (double) config_setting_get_float_elem(stage, 2);
+        
+        // Create Description
+        stageDesc desc;
+                
+        /* Get motors */
+        config_setting_t *configStageMotors = NULL;
+        configStageMotors = config_setting_get_member(stage, "motors");            
+        if (configStageMotors == NULL)
         {
-            // Time Step
-            h = config_setting_get_float(configTStep);
-            
-            // Launch Position
-            double lat = (double) config_setting_get_float_elem(configLaunchPosition, 0);
-            double lon = (double) config_setting_get_float_elem(configLaunchPosition, 1);
-            double alt = (double) config_setting_get_float_elem(configLaunchPosition, 2);
-            
-            // Time
-            beginTime = (double) config_setting_get_float(configLaunchTime);
-            
-            /* Stages */
-            // Allocate Memory
-            numOfStages = config_setting_length(configStages);
-            stages = (Rocket_Stage *) malloc(numOfStages * sizeof(Rocket_Stage));
-            numberOfStages = numOfStages;   //GlobalVariable
-
-            // Loop through stages in config file
-            for (i = 0; i < numOfStages; i++)
+            printf("Can't find stage %d motors\n", i + 1);
+            exit(1);
+        } 
+        int numOfMotors = config_setting_length(configStageMotors);
+        // Allocate Memory
+        desc.motors = malloc(numOfMotors * sizeof(motor));
+        for (j = 0; j < numOfMotors; j++)
+        {
+            config_setting_t *motor = NULL;
+            motor =  config_setting_get_elem(configStageMotors, j);
+            if (motor == NULL)
             {
-                // Get one stage
-                config_setting_t *stage = NULL;
-                stage =  config_setting_get_elem(configStages, i);
-                if (stage == NULL)
-                {
-                    printf("Stage %d broke", i + 1);
-                    exit(1);
-                }
-                
-                double emptyMass    = (double) config_setting_get_float_elem(stage, 0);
-                double fuelMass     = (double) config_setting_get_float_elem(stage, 1);
-                double isp          = (double) config_setting_get_float_elem(stage, 2);
-                double thrust       = (double) config_setting_get_float_elem(stage, 3);
-                double ingnition    = (double) config_setting_get_float_elem(stage, 4);
-                double stageing     = (double) config_setting_get_float_elem(stage, 5);
-                
-                rocketDesc desc;
-                desc.stage = i;
-                desc.emptyMass = emptyMass;
-                desc.ignitionDelay = ingnition;
-                desc.stageDelay = stageing;
-                
-                motor m;
-                m.fuelMass = fuelMass;
-                m.isp = isp;
-                m.thrust = thrust;
-                
-                state initialState;
-                initialState.s = ZeroVec();
-                initialState.U = ZeroVec();
-                initialState.a = ZeroVec();
-                initialState.m = m;
-                initialState.met = 0;
-                
-                // Init Stage
-                stages[i].description = desc;
-                stages[i].initialState = initialState;
-                stages[i].currentState = initialState;    
-                stages[i].burnoutState = initialState;    
-                stages[i].separationState = initialState;    
-                stages[i].apogeeState = initialState;    
-                stages[i].splashdownState = initialState;    
-                stages[i].mode = INIT;
-            }// End Stages Loop
-                        
-            state initialRocketState;
-            initialRocketState = stages[0].initialState;
-            initialRocketState.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
-            initialRocketState.U = stages[0].initialState.U;
-            initialRocketState.a = LinearAcceleration(initialRocketState, 0);
+                printf("Broke Motor\n");
+                exit(1);
+            }
             
-            launchState = initialRocketState;
-        }// End config lookup if
-    }// End config file read if
+            // Get stuff from config file
+            const char *motorName       = config_setting_get_string_elem(motor, 0);
+            double fuelMass    = (double) config_setting_get_float_elem(motor, 1);
+            double isp         = (double) config_setting_get_float_elem(motor, 2);
+            double thrust      = (double) config_setting_get_float_elem(motor, 3);
+            const char *thrustCurveFileName = config_setting_get_string_elem(motor, 4);
+
+            int dataLength;
+            // Inject into motors collection
+            desc.motors[j].name = motorName;
+            desc.motors[j].fuelMass = fuelMass;
+            desc.motors[j].isp = isp;
+            vec2 *thrustCurve;
+            if (thrustCurveFileName == NULL)
+                dataLength = thrustCurve_noFile(thrustCurve, thrust, fuelMass, isp);
+            else if (thrust == 0)
+                dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, 1);
+            else
+                dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, thrust);      
+            desc.motors[j].thrustCurve = thrustCurve;
+            desc.motors[j].curveLength = dataLength;
+        }
+
+        /* Get parachutes */
+        config_setting_t *configStageChutes = NULL;
+        configStageChutes = config_setting_get_member(stage, "chutes");
+        if (configStageChutes == NULL)
+        {
+            printf("Broke\n");
+            exit(1);
+        } 
+        int numOfChutes = config_setting_length(configStageChutes);
+        // Allocate Memory
+        chute *chutes = malloc(numOfChutes * sizeof(chute));
+        for (k = 0; k < numOfChutes; k++)
+        {
+            config_setting_t *chute = NULL;
+            chute =  config_setting_get_elem(configStageChutes, k);
+            if (chute == NULL)
+            {
+                printf("Broke Chute\n");
+                exit(1);
+            }
+            
+            // Get stuff from config file
+            double cd            = (double) config_setting_get_float_elem(chute, 0);
+            double area          = (double) config_setting_get_float_elem(chute, 1);
+            const char *openMode = config_setting_get_string_elem(chute, 2);
+            double agl           = (double) config_setting_get_float_elem(chute, 3);
+            
+            // Inject into chute collection
+            chutes[k].cd = cd;
+            chutes[k].area = area;
+        } 
+        
+        // Inject data into stage description
+        desc.stage = i;
+        desc.emptyMass = emptyMass;
+        desc.ignitionDelay = ingnition;
+        desc.stageDelay = stageing;
+        desc.numOfMotors = numOfMotors;
+        desc.numOfChutes = numOfChutes;
+        desc.chutes = chutes;
+        
+        /* Uncomment this to test reading the config
+         *
+        DumpDescription(desc);
+         */
+        
+        /* Initilize Stage */
+        stages[i].description = desc;
+        stages[i].initialState = initialState;
+        stages[i].currentState = initialState;    
+        stages[i].burnoutState = initialState;    
+        stages[i].separationState = initialState;    
+        stages[i].apogeeState = initialState;    
+        stages[i].splashdownState = initialState;    
+        stages[i].mode = INIT;
+    }// End Stages Loop
+
+    /* There should now be a rocket with all the right stages but dummy initial
+     * states. To actually start the rocket off we compute the initial state
+     * here.*/
+    state initialRocketState;
+    initialRocketState = stages[0].initialState;
+    initialRocketState.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
+    initialRocketState.U = stages[0].initialState.U;
+    initialRocketState.a = LinearAcceleration(initialRocketState, 0);
+    
+    launchState = initialRocketState;
+}
+
+/**
+ * If there is no thrust curve specified then we make a straght line,
+ * assumeing the same thrust thought the burn.
+ */
+static int thrustCurve_noFile(vec2 *curve, double thrust, double fuel, double isp)
+{
+    double burntime = (fuel * isp * g_0) / thrust;
+    
+    vec2 t_0;
+    t_0.i = 0;
+    t_0.j = thrust;
+    
+    vec2 t_bo;
+    t_bo.i = burntime;
+    t_bo.j = thrust;
+    
+    curve = malloc(2 * sizeof(vec2));
+    
+    curve[0] = t_0;
+    curve[1] = t_bo;
+    
+    return 2;
+}
+
+static int thrustCurve_File(vec2 **curve, const char *fileName, double thrust)
+{    
+    FILE *data;
+    int dataLength = 0;
+    char line[128];         // or other suitable maximum line size
+    int i = 0;
+    
+    data = fopen(fileName, "r");
+    if (data == NULL)
+    {
+        printf("Error reading Thrust Curve file\n");
+        exit(1);
+    }
+
+    /* Read through once and figure out how long the file is, ignoring lines
+     * that start with "#"
+     */
+    while ( fgets(line, sizeof line, data) != NULL )
+    {
+        if (line[0] != '#')
+            dataLength++;
+    }
+    
+    rewind(data);
+    
+    // Allocate data
+    *curve = malloc(dataLength * sizeof(vec2));
+    
+    /* Put the data in an array */
+    while ( fgets(line, sizeof line, data) != NULL )
+    {
+        float time, normalThrust;
+        if (line[0] != '#')
+        {
+            sscanf(line, "%f,%f", &time, &normalThrust);
+            vec2 point;
+            curve[0][i].i = time;
+            curve[0][i].j = normalThrust * thrust;
+            i++;
+        }
+    }
+    
+    // Close the file
+    fclose(data);
+    
+    return dataLength;
 }
 
 void initOutputFiles()
@@ -455,10 +620,21 @@ Rocket_Stage *WholeRocket()
     return stages;
 }
 
+double initFuelMass(Rocket_Stage stage)
+{
+    int i;
+    stageDesc desc = stage.description;
+    int numOfMotors = desc.numOfMotors;
+    int fuelMass = 0;
+    for (i = 0; i < numOfMotors; i++)
+        fuelMass += desc.motors[i].fuelMass;
+    return fuelMass;
+}
+
 void printHelp()
 {
     printf("ToOrbit Sim version %#.1f\n", VERSION);
-    printf("©2009 Nathan Bergey availible under GPL 3\n\n");
+    printf("©2009 Nathan Bergey availible under GPL v3\n\n");
     printf("Switches:\n");
     printf("\t-c - Config file name\n");
     printf("\t-v - Version number\n");
@@ -467,7 +643,6 @@ void printHelp()
     printf("\torbit -c config.cfg\n");
     printf("\n");
 }
-
 
 void printVersion()
 {

@@ -44,4 +44,5 @@ void PrintKmlLine(FILE *outfile, state r);
 void PrintHtmlResult(Rocket_Stage *stages);
 void MakePltFiles(Rocket_Stage finalStage);
 void DumpState(state dump);
+void DumpDescription(stageDesc desc);
 

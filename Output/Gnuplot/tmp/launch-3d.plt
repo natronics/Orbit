@@ -2,8 +2,8 @@
 
 reset
 
-set xrange[-95.5:-35.5]
-set yrange[7.9:67.9]
+set xrange[-140.6:-80.6]
+set yrange[13.8:73.8]
 
 load "./Output/Gnuplot/launch-3d_base.plt"
 #    EOF

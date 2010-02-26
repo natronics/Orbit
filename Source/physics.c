@@ -58,7 +58,6 @@ vec Force_Drag(state r , double t)
 {
     vec d, v;
     double Cd = 0.25;
-    //double A = 0.01539;
     double A = 0.09;
     double totalDrag, alt;
     
@@ -95,7 +94,23 @@ vec Force_Thrust(state r, double t)
     double rate = radians(40.0) / 100.0;
 
     Ft = ZeroVec();
-
+    
+    if (CurrentStage().mode == BURNING)
+    {
+        vec2 *curve = CurrentStage().description.motors[0].thrustCurve;
+        int length = CurrentStage().description.motors[0].curveLength;
+        thrust = Interpolat1D(curve, t, length);
+        
+        Ft_enu.i = thrust * sin(phi);
+        Ft_enu.j = 0.0;
+        Ft_enu.k = thrust * cos(phi);
+        
+        Ft_ecef = EnuToEcef(Ft_enu, r);
+        Ft = Ft_ecef;
+    }
+    
+    ///TODO: Fix this as a function of time
+    /*
     thrust = r.m.thrust;
     //thrust = Interpolat1D(ThrustCurve(), t);
     phi = radians(6.0);
@@ -119,7 +134,7 @@ vec Force_Thrust(state r, double t)
             Ft.k = thrust * velocityHat.k;
         }
     }
-
+*/
     return Ft;
 }
 
@@ -167,10 +182,13 @@ double PE(state r, double met)
 
 double MDot(state r, double met)
 {
+    double mdot = 0;
     double thrust = Norm(Force_Thrust(r, met));
-    double Isp = r.m.isp;
+    double Isp = CurrentStage().description.motors[0].isp;
     
-    return thrust / (g_0 * Isp);
+    mdot =  thrust / (g_0 * Isp);
+
+    return mdot;
 }
 
 double RocketMass(state r, double met)
@@ -191,7 +209,11 @@ double RocketMass(state r, double met)
             // Get the fuel of the unlit stages
             if (i > currentStage.description.stage)
             {   
-                totalMass += rocket[i].initialState.m.fuelMass;
+                int j;
+                for (j = 0; j < rocket[i].description.numOfMotors; j++)
+                {   
+                    totalMass += rocket[i].description.motors[j].fuelMass;
+                }
             }
         }
     }
@@ -201,7 +223,7 @@ double RocketMass(state r, double met)
     }
     
     // Get Current fuel mass
-    totalMass += r.m.fuelMass;
+    totalMass += r.fuelMass;
     
     return totalMass;
 }
