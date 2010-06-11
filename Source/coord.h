@@ -21,3 +21,8 @@ double SecondsToDecDay(double seconds);
 double DecDayToSeconds(double decDay);
 void SecondsToHmsString(double seconds, char *buffer);
 double Interpolat1D(vec2 *sample, double value, int dataLength);
+double IntegrateVec2Array(vec2 *curve, int len);
+double AverageThrust(motor m);
+double AverageMdot(motor m);
+double AverageIsp(motor m);
+double Impulse(motor m);

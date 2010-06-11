@@ -199,8 +199,6 @@ Rocket_Stage run(Rocket_Stage stage)
         {
             double fuelLoss =  MDot(currentState, Met) * h;
             currentState.fuelMass -= fuelLoss;
-            if (Met < 10)
-                printf("%0.3f\t%0.2f\t%0.1f\n", Met, fuelLoss, currentState.fuelMass);
         }
         
         if (mode > BURNING) // Wait some time, then separate
@@ -216,7 +214,7 @@ Rocket_Stage run(Rocket_Stage stage)
         }
         
         // Print files no more often than every tenth of a second.
-        if ( (Met - lastTime) > 0.5 )
+        if ( (Met - lastTime) > 0.01 )
         {
            // PrintKmlLine(outKml, currentState);
             if ( (longitude(currentState) < 0 && longitude(lastState) > 0)
@@ -234,17 +232,21 @@ Rocket_Stage run(Rocket_Stage stage)
                 case INIT:
                     PrintStateLine(outCoast, Jd, currentState);
                     PrintKmlLine(outKml, currentState);
+                    PrintForceLine(outForce, Jd, currentState);
                     break;
                 case BURNING:
                     PrintStateLine(outBurn, Jd, currentState);
                     PrintKmlLine(outKml, currentState);
+                    PrintForceLine(outForce, Jd, currentState);
                     break;
                 case COASING:
                     PrintStateLine(outCoast, Jd, currentState);
                     PrintKmlLine(outKml, currentState);
+                    PrintForceLine(outForce, Jd, currentState);
                     break;
                 case SEPARATED:
                     PrintStateLine(outSpent, Jd, currentState);
+                    PrintForceLine(outForce, Jd, currentState);
                     break;
                 default:
                     PrintStateLine(outCoast, Jd, currentState);
@@ -420,6 +422,9 @@ void readConfigFile()
                 dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, thrust);      
             desc.motors[j].thrustCurve = thrustCurve;
             desc.motors[j].curveLength = dataLength;
+            double fakeIsp = AverageIsp(desc.motors[j]);
+            printf("Average Isp: %f\n", fakeIsp);
+            desc.motors[j].isp = fakeIsp;
         }
 
         /* Get parachutes */
@@ -537,12 +542,13 @@ static int thrustCurve_File(vec2 **curve, const char *fileName, double thrust)
         if (line[0] != '#')
             dataLength++;
     }
-    
+
     rewind(data);
-    
+
     // Allocate data
     *curve = malloc(dataLength * sizeof(vec2));
-    
+
+    double impulse = 0;
     /* Put the data in an array */
     while ( fgets(line, sizeof line, data) != NULL )
     {
@@ -553,13 +559,18 @@ static int thrustCurve_File(vec2 **curve, const char *fileName, double thrust)
             vec2 point;
             curve[0][i].i = time;
             curve[0][i].j = normalThrust * thrust;
+            double interval = 0;
+            if (i == 0)
+                interval = time;
+            else
+                interval = time - curve[0][i - 1].i;
+            impulse += (normalThrust * thrust) * interval;
             i++;
         }
     }
-    
     // Close the file
     fclose(data);
-    
+
     return dataLength;
 }
 

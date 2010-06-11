@@ -2,8 +2,8 @@
 
 reset
 
-set xrange[0:7.8]
-set yrange[0:5.2]
+set xrange[0:1.0]
+set yrange[0:1.0]
 
 l = 207
 load "./Output/Gnuplot/overview_base.plt"

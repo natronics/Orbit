@@ -4,6 +4,8 @@
 #include "coord.h"
 #include "orbit.h"
 
+static double burnTime(motor m);
+
 double Position(state r)
 {
     return Norm(r.s);
@@ -207,33 +209,96 @@ double Interpolat1D(vec2 *sample, double value, int dataLength)
     double answer = 0;
     double x_n, x_n1, y_n, y_n1;
     int i;
-    
+
     // Extrapolate?
     if (sample[0].i > value)
         return 0;
     if (sample[dataLength - 1].i < value)
         return 0;
-        
+
     for (i = 0; i < dataLength; i++)
     {
         // Nailed it
         if (sample[i].i == value)
             return sample[i].j;
-            
+
         if (sample[i].i > value)
             break;
     }
-    
+
     x_n = sample[i - 1].i;
     y_n = sample[i - 1].j;
-    
+
     x_n1 = sample[i].i;
     y_n1 = sample[i].j;
-    
+
     double a = (y_n1 - y_n) / (x_n1 - x_n);
     double b = y_n - (a * x_n);
-    
+
     answer = a * value + b;
 
     return answer;
 }
+
+double IntegrateVec2Array(vec2 *curve, int len)
+{
+    int i;
+    double begin = 0;
+    double end = 0;
+    double total = 0;
+    
+    for (i = 0; i < len; i++)
+    {
+        double time;
+        double thrust;
+        if (i == 0)
+            time = curve[i].i - 0;
+        else
+            time = curve[i].i - curve[i - 1].i ;
+        thrust = curve[i].j;
+         
+        total += thrust * time;
+    }
+    
+    return total;
+}
+
+double AverageThrust(motor m)
+{
+    double impulse = Impulse(m);
+    double burnT = burnTime(m);
+    
+    return impulse / burnT;
+}
+
+double AverageMdot(motor m)
+{
+    double burnT = burnTime(m);
+    double averageMdot = m.fuelMass / burnT;
+    
+    return averageMdot;
+}
+
+double AverageIsp(motor m)
+{
+    double averageThrust = AverageThrust(m);
+    double averageMdot = AverageMdot(m);
+    double averageIsp = averageThrust / (g_0 * averageMdot);
+    
+    return averageIsp;
+}
+
+static double burnTime(motor m)
+{
+    int len = m.curveLength;
+    double beginTime = m.thrustCurve[0].i;
+    double endTime = m.thrustCurve[len - 1].i;
+    double burnTime = endTime - beginTime;
+    return burnTime;
+}
+
+double Impulse(motor m)
+{
+    return IntegrateVec2Array(m.thrustCurve, m.curveLength);
+}
+

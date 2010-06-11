@@ -112,12 +112,15 @@ void PrintForceLine(FILE *outfile, double jd, state r)
     char format[512] = "";
     char exp[8] = "%0.10e\t";
     vec thrust = Force_Thrust(r, r.met);
+    double mdot = MDot(r, r.met);
 
     strcat(format, "%0.4f  \t");    //1     Time MET
     strcat(format, "%0.8f  \t");    //2     Time JD
     strcat(format, exp);            //3     Thrust_x
     strcat(format, exp);            //4     Thrust_y
     strcat(format, exp);            //5     Thrust_z
+    strcat(format, exp);            //6     Mdot
+    strcat(format, exp);            //7     Mass
     strcat(format, "\n");
 
     fprintf(outfile, format
@@ -125,7 +128,9 @@ void PrintForceLine(FILE *outfile, double jd, state r)
         ,   jd                      //2     Time JD
         ,   thrust.i                //3     Thrust_x
         ,   thrust.j                //4     Thrust_y
-        ,   thrust.k);              //5     Thrust_z
+        ,   thrust.k                //5     Thrust_z
+        ,   mdot                    //6     Mdot
+        ,   r.fuelMass);            //6     Mass
 
 }
 
@@ -258,7 +263,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "        <th>Dry Mass [kg]</th>\n");
     fprintf(htmlOut, "        <th>Stage Mass [kg]</th>\n");
     fprintf(htmlOut, "        <th>Total Mass [kg]</th>\n");
-    fprintf(htmlOut, "        <th>Thust [N]</th>\n");
+    fprintf(htmlOut, "        <th>Average Thust [N]</th>\n");
     fprintf(htmlOut, "        <th>Mass Ratio (stage)</th>\n");
     fprintf(htmlOut, "        <th>Thrust to Weight Ratio</th>\n");
     fprintf(htmlOut, "        <th>Impulse [N&middot;s]</th>\n");
@@ -270,9 +275,10 @@ void PrintHtmlResult(Rocket_Stage *stages)
     for (i = 0; i < numOfStages; i++)
     {
         Rocket_Stage stage = stages[i];
-        ///TODO: Fix this for multiple motors
-        motor stageMotor = stage.description.motors[0];
-        double fuelMass = stageMotor.fuelMass;
+        int j;
+        double fuelMass = 0;
+        for (j = 0; j < stage.description.numOfMotors; j++)
+            fuelMass += stage.description.motors[j].fuelMass;
         double emptyMass = stage.description.emptyMass;
         
         rocketMassStage[i] = fuelMass + emptyMass;
@@ -289,10 +295,8 @@ void PrintHtmlResult(Rocket_Stage *stages)
         double emptyMass        = stage.description.emptyMass;
         double stageTotalMass   = fuelMass + emptyMass;
         double massRatio        = stageTotalMass / emptyMass;
-        //double thrust           = stageMotor.thrust;
-        double burnTime         = stage.burnoutState.met - stage.initialState.met;
-        burnTime -= stage.description.ignitionDelay;
-        //double impulse          = thrust * burnTime;
+        double thrust           = AverageThrust(stageMotor);
+        double impulse          = Impulse(stageMotor);
         
         double rocketMass = 0;
         for(j = i; j < numOfStages; j++)
@@ -300,7 +304,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
             rocketMass += rocketMassStage[j];
         }
         
-        //double TTWRatio = stageMotor.thrust / (g_0 * rocketMass);
+        double TTWRatio = thrust / (g_0 * rocketMass);
         
         
         fprintf(htmlOut, "      <tr>\n");
@@ -310,21 +314,24 @@ void PrintHtmlResult(Rocket_Stage *stages)
         fprintf(htmlOut, "        <td>%0.2f</td>\n", emptyMass);
         fprintf(htmlOut, "        <td>%0.2f</td>\n", stageTotalMass);
         fprintf(htmlOut, "        <td>%0.2f</td>\n", rocketMass);
-        //fprintf(htmlOut, "        <td>%0.0f</td>\n", thrust);
+        fprintf(htmlOut, "        <td>%0.0f</td>\n", thrust);
         fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
-        //fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
-        //fprintf(htmlOut, "        <td>%0.0f (%c)</td>\n", impulse, nar(impulse));
+        fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
+        fprintf(htmlOut, "        <td>%0.0f (%c)</td>\n", impulse, nar(impulse));
         fprintf(htmlOut, "      </tr>\n");
         
         // Add up the rocket totals
         rocketTotalMass += stageTotalMass;
         rocketTotalFuelMass += fuelMass;
         rocketTotalStructureMass += emptyMass;
-        //rocketTotalImpulse += impulse;
+        rocketTotalImpulse += impulse;
     }
     
     double massRatio = rocketTotalMass / rocketTotalStructureMass;
-    //double TTWRatio = stages[0].initialState.m.thrust / (g_0 * rocketTotalMass);
+    double liftoffThrust = 0;
+    for (i = 0; i < stages[0].description.numOfMotors; i++)
+        liftoffThrust += AverageThrust(stages[0].description.motors[i]);
+    double TTWRatio = liftoffThrust / (g_0 * rocketTotalMass);
     
     
     fprintf(htmlOut, "    </tbody>\n");
@@ -338,7 +345,7 @@ void PrintHtmlResult(Rocket_Stage *stages)
     fprintf(htmlOut, "        <td><span class=\"highlight\" title=\"GLOW - %0.0f lbs (%0.2f tons)\">%0.2f</span></td>\n", rocketTotalMass * 2.20462262, rocketTotalMass * 0.00110231131, rocketTotalMass);
     fprintf(htmlOut, "        <td>&mdash;</td>\n");
     fprintf(htmlOut, "        <td>%0.1f</td>\n", massRatio);
-    //fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
+    fprintf(htmlOut, "        <td>%0.1f</td>\n", TTWRatio);
     fprintf(htmlOut, "        <td>%0.0f (%c)</td>\n", rocketTotalImpulse, nar(rocketTotalImpulse));
     fprintf(htmlOut, "      </tr>\n");
     fprintf(htmlOut, "    </tfoot>\n");

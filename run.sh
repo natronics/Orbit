@@ -10,5 +10,5 @@ echo "Running..."
 
 echo "Done."
 
-./viz.sh
+#./viz.sh
 
