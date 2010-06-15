@@ -2,9 +2,9 @@
 
 reset
 
-set xrange[-127.6:-113.6]
-set yrange[36.8:50.8]
+set xrange[-137.0:-123.0]
+set yrange[38.0:52.0]
 
-l = 1207
+l = 1228
 load "./Output/Gnuplot/launchmap_base.plt"
 #    EOF

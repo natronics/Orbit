@@ -1,4 +1,9 @@
 Install gcc, libconfig, and gnuplot
 
+On Ubuntb installing the package "libconfig8-dev" works well.
+
 run 'run.sh' to build, run and vizulize the data
+
+Once the program finishes running there will be a file "result.html" in the 
+Output folder. Open this to see what happend.
 

@@ -35,7 +35,7 @@ void readCommandLineSwitches(int argc, char **argv);
 void readConfigFile();
 void initOutputFiles();
 Rocket_Stage run(Rocket_Stage stage);
-static int thrustCurve_noFile(vec2 *curve, double thrust, double fuel, double isp);
+static int thrustCurve_noFile(vec2 **curve, double thrust, double fuel, double isp);
 static int thrustCurve_File(vec2 **curve, const char *fileName, double thrust);
 double initFuelMass(Rocket_Stage stage);
 
@@ -326,11 +326,13 @@ void readConfigFile()
     /* Config file layout */
     config_setting_t *configTStep           = NULL;
     config_setting_t *configLaunchPosition  = NULL;
+    config_setting_t *configLaunchVelocity  = NULL;
     config_setting_t *configLaunchTime      = NULL;
     config_setting_t *configStages          = NULL;
     
     configTStep             = config_lookup(&cfg, "timeStep");
     configLaunchPosition    = config_lookup(&cfg, "launch.position");
+    configLaunchVelocity    = config_lookup(&cfg, "launch.velocity");
     configLaunchTime        = config_lookup(&cfg, "launch.juliandate");
     configStages            = config_lookup(&cfg, "stages");
 
@@ -351,6 +353,24 @@ void readConfigFile()
     double lat = (double) config_setting_get_float_elem(configLaunchPosition, 0);
     double lon = (double) config_setting_get_float_elem(configLaunchPosition, 1);
     double alt = (double) config_setting_get_float_elem(configLaunchPosition, 2);
+
+    // Launch Velocity (not required)
+
+    if (configLaunchVelocity)
+    {
+      double v_E = (double) config_setting_get_float_elem(configLaunchVelocity, 0);
+      double v_N = (double) config_setting_get_float_elem(configLaunchVelocity, 1);
+      double v_U = (double) config_setting_get_float_elem(configLaunchVelocity, 2);
+
+      vec v_enu;
+      v_enu.i = v_E;
+      v_enu.j = v_N;
+      v_enu.k = v_U;
+      state initial_state_dummy = initialState;
+      initial_state_dummy.s = cartesian(Re + alt, PI/2.0 - radians(lat), radians(lon));
+      vec v_ecef = EnuToEcef(v_enu, initial_state_dummy);
+      initialState.U = v_ecef;
+    }
     
     // Time
     beginTime = (double) config_setting_get_float(configLaunchTime);
@@ -407,7 +427,7 @@ void readConfigFile()
             double isp         = (double) config_setting_get_float_elem(motor, 2);
             double thrust      = (double) config_setting_get_float_elem(motor, 3);
             const char *thrustCurveFileName = config_setting_get_string_elem(motor, 4);
-
+  
             int dataLength;
             // Inject into motors collection
             desc.motors[j].name = motorName;
@@ -415,11 +435,12 @@ void readConfigFile()
             desc.motors[j].isp = isp;
             vec2 *thrustCurve;
             if (thrustCurveFileName == NULL)
-                dataLength = thrustCurve_noFile(thrustCurve, thrust, fuelMass, isp);
+                dataLength = thrustCurve_noFile(&thrustCurve, thrust, fuelMass, isp);
             else if (thrust == 0)
                 dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, 1);
             else
-                dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, thrust);      
+                dataLength = thrustCurve_File(&thrustCurve, thrustCurveFileName, thrust); 
+
             desc.motors[j].thrustCurve = thrustCurve;
             desc.motors[j].curveLength = dataLength;
             double fakeIsp = AverageIsp(desc.motors[j]);
@@ -500,7 +521,7 @@ void readConfigFile()
  * If there is no thrust curve specified then we make a straght line,
  * assumeing the same thrust thought the burn.
  */
-static int thrustCurve_noFile(vec2 *curve, double thrust, double fuel, double isp)
+static int thrustCurve_noFile(vec2 **curve, double thrust, double fuel, double isp)
 {
     double burntime = (fuel * isp * g_0) / thrust;
     
@@ -512,10 +533,10 @@ static int thrustCurve_noFile(vec2 *curve, double thrust, double fuel, double is
     t_bo.i = burntime;
     t_bo.j = thrust;
     
-    curve = malloc(2 * sizeof(vec2));
+    *curve = malloc(2 * sizeof(vec2));
     
-    curve[0] = t_0;
-    curve[1] = t_bo;
+    curve[0][0] = t_0;
+    curve[0][1] = t_bo;
     
     return 2;
 }

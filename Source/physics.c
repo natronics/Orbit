@@ -57,7 +57,7 @@ vec force_Gravity(state r)
 vec Force_Drag(state r , double t)
 {
     vec d, v;
-    double Cd = 0.25;
+    double Cd = 0.8;
     double A = 0.09;
     double totalDrag, alt;
     
@@ -92,6 +92,7 @@ vec Force_Thrust(state r, double t)
     double thrust;
     double phi;
     double rate = radians(40.0) / 100.0;
+    phi = radians(20);
 
     Ft = ZeroVec();
     

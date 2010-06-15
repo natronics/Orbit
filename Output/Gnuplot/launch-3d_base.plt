@@ -25,18 +25,16 @@ set out "Output/launch-3d.png"
 
 set zrange[0:6000]
 
+fileres = 20
+
 splot "./Output/MapData/world.map" us 2:1:(0) every 10 w lines linestyle 1, \
 "./Output/MapData/rivers.map" us 2:1:(0) every 10 w lines linestyle 2, \
 "./Output/MapData/countries-us.map" us 2:1:(0) every 10 w lines linestyle 9, \
 (0) linestyle 3, \
-"./Output/out-coast.dat" us 16:15:($17/1000) every ::::1000 w lines linestyle 6, \
+"./Output/out-coast.dat" us 16:15:($17/1000) every fileres w lines linestyle 6, \
 "./Output/out-spentStages.dat" us 16:15:($17/1000) w lines linestyle 3, \
 "./Output/out-burn.dat" us 16:15:($17/1000) w lines linestyle 5, \
-"./Output/out-coast.dat" us 16:15:(0) every ::::1000 w lines linestyle 7, \
-"./Output/out-burn.dat" us 16:15:(0) w lines linestyle 7, \
-"./Output/out-burn.dat" us (lonTrace($16,$17)):(latTrace($15, $17)):(0) w lines linestyle 8, \
-"./Output/out-coast.dat" us (lonTrace($16,$17)):(latTrace($15, $17)):(0) every ::::1000 w lines linestyle 8, \
-"./Output/out-burn.dat" us (lon1Trace($16,$17)):(lat1Trace($15, $17)):(0) w lines linestyle 8, \
-"./Output/out-coast.dat" us (lon1Trace($16,$17)):(lat1Trace($15, $17)):(0) every ::::1000 w lines linestyle 8
+"./Output/out-coast.dat" us 16:15:(0) every fileres w lines linestyle 7, \
+"./Output/out-burn.dat" us 16:15:(0) w lines linestyle 7
 
 # EOF

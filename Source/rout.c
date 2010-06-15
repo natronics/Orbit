@@ -617,6 +617,7 @@ void printHtmlDetailDiv(FILE *out, FILE *pltOut, Rocket_Stage stage)
     fprintf(out, "  </table>\n");
     
     fprintf(out, "<img src=\"burnout_%d.png\" />", stageNum);
+    fprintf(out, "<img src=\"burnout_thrust_%d.png\" />", stageNum);
     
     // Apogee
     fprintf(out, "  <h3>Apogee</h3>\n");

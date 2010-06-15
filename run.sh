@@ -6,9 +6,9 @@
 
 echo "Running..." 
 
-./Build/orbit -c sample.cfg
+./Build/orbit -c sample/cfg
 
 echo "Done."
 
-#./viz.sh
+./viz.sh
 
